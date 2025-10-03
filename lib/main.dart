@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'game_mode_screen.dart';
+// import 'game_mode_screen.dart';
+import 'screens/iniciar_secion.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() async{
@@ -26,7 +27,7 @@ class MyApp extends StatelessWidget {
           foregroundColor: Colors.white,
         ),
       ),
-      home: const GameModeScreen(),
+      home: const ScreenIniciarSecion(),
     );
   }
 }

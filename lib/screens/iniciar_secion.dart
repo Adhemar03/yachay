@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:yachay/core/app_colors.dart';
 import 'package:yachay/main.dart';
+import 'package:yachay/game_mode_screen.dart';
 
 class ScreenIniciarSecion extends StatefulWidget {
   const ScreenIniciarSecion({super.key});
@@ -96,7 +97,7 @@ class _ScreenIniciarSecionState extends State<ScreenIniciarSecion> {
       if (!mounted) return;
       // Redireccionamiento a Home
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const MyHomePage(title: "Inicio")),
+        MaterialPageRoute(builder: (_) => const GameModeScreen()),
       );
     } catch (err, st) {
       debugPrint('SIGNIN ERROR: $err\n$st');
