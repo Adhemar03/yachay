@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:yachay/core/app_colors.dart';
+import 'package:yachay/screens/iniciar_secion.dart';
 
 void main() async {
-WidgetsFlutterBinding.ensureInitialized();
+  WidgetsFlutterBinding.ensureInitialized();
 
   await Supabase.initialize(
     url: 'https://xbdtenznssbragnduobc.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhiZHRlbnpuc3NicmFnbmR1b2JjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwNzYxNDIsImV4cCI6MjA3MzY1MjE0Mn0.bZe5KFXKqx329uXdIL5Y7HDT3b-1uL3y_fatESptQqk',
+    anonKey:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhiZHRlbnpuc3NicmFnbmR1b2JjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwNzYxNDIsImV4cCI6MjA3MzY1MjE0Mn0.bZe5KFXKqx329uXdIL5Y7HDT3b-1uL3y_fatESptQqk',
   );
 
   runApp(const MyApp());
@@ -18,8 +21,11 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
+    final session = Supabase.instance.client.auth.currentSession;
+
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Yachay',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         // This is the theme of your application.
         //
@@ -37,8 +43,11 @@ class MyApp extends StatelessWidget {
         // This works for code too, not just values: Most code changes can be
         // tested with just a hot reload.
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        scaffoldBackgroundColor: PaletadeColores.fondo,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: session != null
+          ? const MyHomePage(title: "Inicio")
+          : const ScreenIniciarSecion(),
     );
   }
 }
