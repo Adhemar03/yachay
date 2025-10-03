@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'preguntas_screen.dart';
+import '../game_page.dart';
 import 'dart:math';
 
 class DailyChallengeScreen extends StatelessWidget {
@@ -10,9 +10,6 @@ class DailyChallengeScreen extends StatelessWidget {
     final categorias = ["Historia", "Ciencia", "Geografía", "Deportes", "Arte", "Tecnología"];
     final niveles = ["Fácil", "Medio", "Difícil"];
 
-    final categoria = categorias[Random().nextInt(categorias.length)];
-    final nivel = niveles[Random().nextInt(niveles.length)];
-
     return Scaffold(
       appBar: AppBar(title: const Text("Desafío Diario")),
       body: Center(
@@ -22,13 +19,15 @@ class DailyChallengeScreen extends StatelessWidget {
             backgroundColor: Colors.teal,
           ),
           onPressed: () {
+            final categoria = categorias[Random().nextInt(categorias.length)];
+            final nivel = niveles[Random().nextInt(niveles.length)];
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => PreguntasScreen(
-                  titulo: "Desafío Diario - $categoria - $nivel",
-                  tiempo: null,
-                  totalPreguntas: 5,
+                builder: (_) => GamePage(
+                  modo: 'desafío diario',
+                  nivel: nivel,
+                  categoria: categoria,
                 ),
               ),
             );

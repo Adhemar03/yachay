@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'preguntas_screen.dart';
+import '../game_page.dart';
 import 'dart:math';
 
 class ClasicoScreen extends StatelessWidget {
@@ -42,10 +42,10 @@ class ClasicoScreen extends StatelessWidget {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => PreguntasScreen(
-                titulo: "Clásico - $dificultad - $categoria",
-                tiempo: null,
-                totalPreguntas: 10,
+              builder: (_) => GamePage(
+                modo: 'clásico',
+                nivel: dificultad,
+                categoria: categoria,
               ),
             ),
           );

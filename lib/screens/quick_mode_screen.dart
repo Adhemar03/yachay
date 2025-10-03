@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'preguntas_screen.dart';
+import '../game_page.dart';
 
 class QuickModeScreen extends StatelessWidget {
   const QuickModeScreen({super.key});
@@ -18,10 +18,10 @@ class QuickModeScreen extends StatelessWidget {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => PreguntasScreen(
-                  titulo: "Partida Rápida",
-                  tiempo: null,
-                  totalPreguntas: 10,
+                builder: (_) => GamePage(
+                  modo: 'rápida',
+                  nivel: null,
+                  categoria: null,
                 ),
               ),
             );

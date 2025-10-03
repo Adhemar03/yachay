@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'preguntas_screen.dart';
+import '../game_page.dart';
 
 class CategoriaScreen extends StatelessWidget {
   const CategoriaScreen({super.key});
@@ -65,10 +65,10 @@ class CategoriaScreen extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => PreguntasScreen(
-              titulo: "$categoria - $nivel",
-              tiempo: null,
-              totalPreguntas: 10,
+            builder: (_) => GamePage(
+              modo: 'categoría',
+              nivel: nivel,
+              categoria: categoria,
             ),
           ),
         );

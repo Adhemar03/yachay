@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'preguntas_screen.dart';
+import '../game_page.dart';
 import 'dart:math';
 
 class ContrarrelojScreen extends StatelessWidget {
@@ -42,10 +42,10 @@ class ContrarrelojScreen extends StatelessWidget {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => PreguntasScreen(
-                titulo: "Contrarreloj - $nivel - $categoria",
-                tiempo: const Duration(minutes: 2),
-                totalPreguntas: 10,
+              builder: (_) => GamePage(
+                modo: 'contrarreloj',
+                nivel: nivel,
+                categoria: categoria,
               ),
             ),
           );
