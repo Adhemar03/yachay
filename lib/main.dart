@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:yachay/core/app_colors.dart';
 // import 'game_mode_screen.dart';
 import 'screens/iniciar_secion.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -22,7 +23,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primarySwatch: Colors.teal,
-        scaffoldBackgroundColor: Colors.white,
+        scaffoldBackgroundColor: PaletadeColores.fondo,
         appBarTheme: const AppBarTheme(
           backgroundColor: Colors.teal,
           foregroundColor: Colors.white,

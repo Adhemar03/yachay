@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:yachay/core/app_colors.dart';
 import 'package:yachay/main.dart';
 import 'package:yachay/game_mode_screen.dart';
+import 'signup_screen.dart';
 
 class ScreenIniciarSecion extends StatefulWidget {
   const ScreenIniciarSecion({super.key});
@@ -283,7 +284,7 @@ class _ScreenIniciarSecionState extends State<ScreenIniciarSecion> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const HomeScreen(),
+                          builder: (context) => const SignupScreen(),
                         ),
                       );
                     },
@@ -301,18 +302,6 @@ class _ScreenIniciarSecionState extends State<ScreenIniciarSecion> {
           ],
         ),
       ),
-    );
-  }
-}
-
-/// HomeScreen mínimo de ejemplo. Reemplázalo por tu MyHomePage o pantalla real.
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Inicio')),
-      body: const Center(child: Text('Bienvenido a la Home')),
     );
   }
 }

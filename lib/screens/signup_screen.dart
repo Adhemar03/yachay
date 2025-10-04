@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import 'package:yachay/game_mode_screen.dart';
+import 'iniciar_secion.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({Key? key}) : super(key: key);
@@ -122,7 +124,9 @@ class _SignupScreenState extends State<SignupScreen> {
                       prefixIcon: Icon(Icons.lock, color: Color(0xFF162936)),
                       suffixIcon: IconButton(
                         icon: Icon(
-                          _showPassword ? Icons.visibility_off : Icons.visibility,
+                          _showPassword
+                              ? Icons.visibility_off
+                              : Icons.visibility,
                           color: Color(0xFF162936),
                         ),
                         onPressed: () {
@@ -194,7 +198,8 @@ class _SignupScreenState extends State<SignupScreen> {
                                   _isLoading = true;
                                 });
                                 final email = _emailController.text.trim();
-                                final password = _passwordController.text.trim();
+                                final password = _passwordController.text
+                                    .trim();
                                 final name = _nameController.text.trim();
                                 print(
                                   '********************************Intentando registrar usuario:',
@@ -212,7 +217,12 @@ class _SignupScreenState extends State<SignupScreen> {
                                   // Registro exitoso, navegar a Home
                                   print('Registro exitoso, navegando a Home');
                                   if (mounted) {
-                                    Navigator.pushReplacementNamed(context, '/home');
+                                    //Navigator.pushReplacementNamed(context, '/home');
+                                    Navigator.of(context).pushReplacement(
+                                      MaterialPageRoute(
+                                        builder: (_) => const GameModeScreen(),
+                                      ),
+                                    );
                                   }
                                 } else {
                                   setState(() {
@@ -231,7 +241,9 @@ class _SignupScreenState extends State<SignupScreen> {
                               height: 24,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF162936)),
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Color(0xFF162936),
+                                ),
                               ),
                             )
                           : const Text('Registrarse'),
@@ -253,7 +265,12 @@ class _SignupScreenState extends State<SignupScreen> {
                       onPressed: _isLoading
                           ? null
                           : () {
-                              Navigator.pushReplacementNamed(context, '/login');
+                              //Navigator.pushReplacementNamed(context, '/login');
+                              Navigator.of(context).pushReplacement(
+                                MaterialPageRoute(
+                                  builder: (_) => const ScreenIniciarSecion(),
+                                ),
+                              );
                             },
                       child: const Text('Cancelar'),
                     ),
@@ -268,7 +285,12 @@ class _SignupScreenState extends State<SignupScreen> {
                       ),
                       GestureDetector(
                         onTap: () {
-                          Navigator.pushNamed(context, '/login');
+                          //Navigator.pushNamed(context, '/login');
+                          Navigator.of(context).pushReplacement(
+                            MaterialPageRoute(
+                              builder: (_) => const ScreenIniciarSecion(),
+                            ),
+                          );
                         },
                         child: const Text(
                           'Inicia sesión',
