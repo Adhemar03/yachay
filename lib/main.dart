@@ -1,13 +1,9 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
-
-import 'screens/login_screen.dart';
-import 'screens/signup_screen.dart';
-import 'screens/splash_screen.dart';
-import 'screens/home_screen.dart';
+// import 'game_mode_screen.dart';
+import 'screens/iniciar_secion.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
   await Supabase.initialize(
     url: 'https://xbdtenznssbragnduobc.supabase.co',
     anonKey:
@@ -19,51 +15,20 @@ void main() async {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Yachay Trivia',
+      title: 'Juego de Preguntas',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF162936),
-          primary: const Color(0xFF162936),
-        ),
-        scaffoldBackgroundColor: const Color(0xFF162936),
-        fontFamily: 'Roboto',
-        textTheme: const TextTheme(
-          bodyLarge: TextStyle(color: Colors.white),
-          bodyMedium: TextStyle(color: Colors.white),
-          bodySmall: TextStyle(color: Colors.white),
-        ),
+        primarySwatch: Colors.teal,
+        scaffoldBackgroundColor: Colors.white,
         appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF162936),
+          backgroundColor: Colors.teal,
           foregroundColor: Colors.white,
         ),
-        inputDecorationTheme: const InputDecorationTheme(
-          labelStyle: TextStyle(color: Colors.white),
-          enabledBorder: UnderlineInputBorder(
-            borderSide: BorderSide(color: Colors.white),
-          ),
-          focusedBorder: UnderlineInputBorder(
-            borderSide: BorderSide(color: Colors.white),
-          ),
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.white,
-            foregroundColor: Color(0xFF162936),
-            textStyle: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-        ),
       ),
-      initialRoute: '/splash',
-      routes: {
-        '/splash': (context) => const SplashScreen(),
-        '/login': (context) => const LoginScreen(),
-        '/signup': (context) => const SignupScreen(),
-        '/home': (context) => const HomeScreen(),
-      },
+      home: const ScreenIniciarSecion(),
     );
   }
 }
