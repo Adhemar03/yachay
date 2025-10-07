@@ -1,3 +1,5 @@
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'package:yachay/game_mode_screen.dart';
@@ -10,6 +12,14 @@ class SignupScreen extends StatefulWidget {
 }
 
 class _SignupScreenState extends State<SignupScreen> {
+  Future<bool> _usuarioOCorreoExiste(String username, String email) async {
+    final response = await Supabase.instance.client
+        .from('users')
+        .select('user_id')
+        .or('username.eq.$username,email.eq.$email')
+        .maybeSingle();
+    return response != null;
+  }
   bool _isLoading = false;
   bool _showPassword = false;
   final _formKey = GlobalKey<FormState>();
@@ -198,26 +208,36 @@ class _SignupScreenState extends State<SignupScreen> {
                                   _isLoading = true;
                                 });
                                 final email = _emailController.text.trim();
-                                final password = _passwordController.text
-                                    .trim();
+                                final password = _passwordController.text.trim();
                                 final name = _nameController.text.trim();
-                                print(
-                                  '********************************Intentando registrar usuario:',
-                                );
-                                print('Nombre: $name');
-                                print('Correo: $email');
-                                print('Contraseña: $password');
+                                // Validar si ya existe username o email
+                                final existe = await _usuarioOCorreoExiste(name, email);
+                                if (existe) {
+                                  setState(() {
+                                    _errorMessage = 'El usuario o correo ya está registrado.';
+                                    _successMessage = null;
+                                    _isLoading = false;
+                                  });
+                                  return;
+                                }
                                 final result = await _authService.signUp(
                                   email,
                                   password,
                                   name,
                                 );
-                                print('Resultado de registro: $result');
                                 if (result == null) {
-                                  // Registro exitoso, navegar a Home
-                                  print('Registro exitoso, navegando a Home');
+                                  // Registro exitoso, buscar el user_id y guardar sesión
+                                  final userRow = await Supabase.instance.client
+                                      .from('users')
+                                      .select('user_id')
+                                      .eq('email', email)
+                                      .maybeSingle();
+                                  if (userRow != null && userRow['user_id'] != null) {
+                                    final prefs = await SharedPreferences.getInstance();
+                                    await prefs.setBool('is_logged', true);
+                                    await prefs.setInt('user_id', userRow['user_id'] as int);
+                                  }
                                   if (mounted) {
-                                    //Navigator.pushReplacementNamed(context, '/home');
                                     Navigator.of(context).pushReplacement(
                                       MaterialPageRoute(
                                         builder: (_) => const GameModeScreen(),
