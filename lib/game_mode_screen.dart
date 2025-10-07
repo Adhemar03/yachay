@@ -1,12 +1,51 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'screens/classic_mode_screen.dart';
 import 'screens/timer_mode_screen.dart';
 import 'screens/category_mode_screen.dart';
 import 'screens/quick_mode_screen.dart';
 import 'screens/daily_challenge_screen.dart';
 
-class GameModeScreen extends StatelessWidget {
+class GameModeScreen extends StatefulWidget {
   const GameModeScreen({super.key});
+
+  @override
+  State<GameModeScreen> createState() => _GameModeScreenState();
+}
+
+class _GameModeScreenState extends State<GameModeScreen> {
+  int? userId;
+  int? userPoints;
+  String? username;
+  bool loadingPoints = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final id = prefs.getInt('user_id');
+    if (id != null) {
+      setState(() { userId = id; });
+      // Consultar puntos y username en Supabase
+      final userRow = await Supabase.instance.client
+          .from('users')
+          .select('in_game_points, username')
+          .eq('user_id', id)
+          .maybeSingle();
+      setState(() {
+        userPoints = userRow != null ? userRow['in_game_points'] as int? : null;
+        username = userRow != null ? userRow['username'] as String? : null;
+        loadingPoints = false;
+      });
+    } else {
+      setState(() { loadingPoints = false; });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,28 +65,32 @@ class GameModeScreen extends StatelessWidget {
                     const Icon(Icons.attach_money, color: Colors.yellow, size: 28),
                     const SizedBox(width: 4),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 4),
                       decoration: BoxDecoration(
                         color: Colors.teal,
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: const Text(
-                        "150",
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      child: Text(
+                        loadingPoints
+                            ? '...'
+                            : (userPoints?.toString() ?? '0'),
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ],
                 ),
                 Column(
-                  children: const [
-                    CircleAvatar(
+                  children: [
+                    const CircleAvatar(
                       radius: 20,
                       backgroundImage: AssetImage("assets/logo.png"),
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     Text(
-                      "YACHAY",
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      loadingPoints
+                          ? '...'
+                          : (username ?? 'Usuario'),
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),

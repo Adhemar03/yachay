@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'game_mode_screen.dart';
 import 'question_widgets.dart';
 
 import 'dart:async';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class GamePage extends StatefulWidget {
   final String modo;
@@ -22,6 +25,29 @@ class GamePage extends StatefulWidget {
 
 // Clase State separada correctamente
 class _GamePageState extends State<GamePage> {
+  Future<void> _showScoreAndUpdateUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getInt('user_id');
+    if (userId == null) return;
+    final pointsToAdd = correctAnswers * 100;
+    if (pointsToAdd > 0) {
+      final userData = await Supabase.instance.client
+          .from('users')
+          .select('in_game_points')
+          .eq('user_id', userId)
+          .maybeSingle();
+      final currentPoints = (userData != null && userData['in_game_points'] != null)
+          ? userData['in_game_points'] as int
+          : 0;
+      final newPoints = currentPoints + pointsToAdd;
+      await Supabase.instance.client
+          .from('users')
+          .update({'in_game_points': newPoints})
+          .eq('user_id', userId);
+    }
+  }
+  int correctAnswers = 0;
+  bool finished = false;
   static const int questionDuration = 10; // segundos por pregunta
   int timeLeft = questionDuration;
   Timer? timer;
@@ -109,22 +135,13 @@ class _GamePageState extends State<GamePage> {
       });
       _startTimer();
     } else {
-      // Fin de la partida
-      showDialog(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: const Text('¡Fin de la partida!'),
-          content: const Text('Has respondido todas las preguntas.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst),
-              child: const Text('Volver al inicio'),
-            ),
-          ],
-        ),
-      );
+      setState(() {
+        finished = true;
+      });
+      _showScoreAndUpdateUser();
     }
   }
+
 
   Widget _buildExplanationScreen() {
     final explanation = preguntas[current]['explanation'] ?? 'Sin explicación disponible.';
@@ -146,6 +163,10 @@ class _GamePageState extends State<GamePage> {
           width: double.infinity,
           child: ElevatedButton(
             onPressed: () {
+              // Sumar puntos si la respuesta fue correcta
+              if (selectedIndex != null && selectedIndex == _getCorrectIndex()) {
+                correctAnswers++;
+              }
               setState(() {
                 showingExplanation = false;
                 showFeedback = false;
@@ -171,81 +192,104 @@ class _GamePageState extends State<GamePage> {
             ? const Center(child: CircularProgressIndicator())
             : preguntas.isEmpty
                 ? const Center(child: Text('No hay preguntas disponibles.'))
-                : (showingExplanation
-                    ? _buildExplanationScreen()
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 8),
-                          // Barra de progreso y cronómetro
-                          Stack(
-                            alignment: Alignment.centerLeft,
+                : (finished
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text('¡Fin de la partida!', style: TextStyle(fontSize: 28, color: Colors.white, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 24),
+                            Text('Puntaje obtenido: ${correctAnswers * 100}', style: TextStyle(fontSize: 22, color: Colors.tealAccent)),
+                            const SizedBox(height: 32),
+                            ElevatedButton(
+                              onPressed: () {
+                                Navigator.of(context).pushAndRemoveUntil(
+                                  MaterialPageRoute(builder: (_) => const GameModeScreen()),
+                                  (route) => false,
+                                );
+                              },
+                              child: const Text('Volver al inicio'),
+                            ),
+                          ],
+                        ),
+                      )
+                    : (showingExplanation
+                        ? _buildExplanationScreen()
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Container(
-                                width: double.infinity,
-                                height: 18,
-                                decoration: BoxDecoration(
-                                  color: Colors.white24,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                              AnimatedContainer(
-                                duration: const Duration(milliseconds: 300),
-                                width: (MediaQuery.of(context).size.width - 48) * (timeLeft / questionDuration),
-                                height: 18,
-                                decoration: BoxDecoration(
-                                  color: timeLeft > 3 ? Colors.teal : Colors.red,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                              Positioned.fill(
-                                child: Center(
-                                  child: Text(
-                                    'Tiempo: $timeLeft s',
-                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                              const SizedBox(height: 8),
+                              // Barra de progreso y cronómetro
+                              Stack(
+                                alignment: Alignment.centerLeft,
+                                children: [
+                                  Container(
+                                    width: double.infinity,
+                                    height: 18,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white24,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
                                   ),
+                                  AnimatedContainer(
+                                    duration: const Duration(milliseconds: 300),
+                                    width: (MediaQuery.of(context).size.width - 48) * (timeLeft / questionDuration),
+                                    height: 18,
+                                    decoration: BoxDecoration(
+                                      color: timeLeft > 3 ? Colors.teal : Colors.red,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  Positioned.fill(
+                                    child: Center(
+                                      child: Text(
+                                        'Tiempo: $timeLeft s',
+                                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 24),
+                              MultipleChoiceQuestion(
+                                question: preguntas[current]['question_text'],
+                                options: (preguntas[current]['answer_data']['options'] as List)
+                                    .map<String>((opt) => opt['text'] as String)
+                                    .toList(),
+                                selectedIndex: selectedIndex,
+                                correctIndex: _getCorrectIndex(),
+                                showFeedback: showFeedback,
+                                onSelected: (i) async {
+                                  timer?.cancel();
+                                  final correct = _getCorrectIndex();
+                                  debugPrint('Índice de la opción correcta: $correct');
+                                  setState(() {
+                                    selectedIndex = i;
+                                    showFeedback = true;
+                                  });
+                                  await Future.delayed(const Duration(seconds: 2));
+                                  setState(() {
+                                    showingExplanation = true;
+                                  });
+                                },
+                              ),
+                              const SizedBox(height: 24),
+                              Text('Pregunta ${current + 1} de ${preguntas.length}'),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton(
+                                  onPressed: () {
+                                    timer?.cancel();
+                                    Navigator.of(context).pushAndRemoveUntil(
+                                      MaterialPageRoute(builder: (_) => const GameModeScreen()),
+                                      (route) => false,
+                                    );
+                                  },
+                                  child: const Text('Terminar partida y volver al inicio'),
                                 ),
                               ),
                             ],
-                          ),
-                          const SizedBox(height: 24),
-                          MultipleChoiceQuestion(
-                            question: preguntas[current]['question_text'],
-                            options: (preguntas[current]['answer_data']['options'] as List)
-                                .map<String>((opt) => opt['text'] as String)
-                                .toList(),
-                            selectedIndex: selectedIndex,
-                            correctIndex: _getCorrectIndex(),
-                            showFeedback: showFeedback,
-                            onSelected: (i) async {
-                              timer?.cancel();
-                              final correct = _getCorrectIndex();
-                              debugPrint('Índice de la opción correcta: $correct');
-                              setState(() {
-                                selectedIndex = i;
-                                showFeedback = true;
-                              });
-                              await Future.delayed(const Duration(seconds: 2));
-                              setState(() {
-                                showingExplanation = true;
-                              });
-                            },
-                          ),
-                          const SizedBox(height: 24),
-                          Text('Pregunta ${current + 1} de ${preguntas.length}'),
-                          // const Spacer(),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: () {
-                                timer?.cancel();
-                                Navigator.of(context).popUntil((r) => r.isFirst);
-                              },
-                              child: const Text('Terminar partida y volver al inicio'),
-                            ),
-                          ),
-                        ],
-                      )),
+                          ))),
       ),
     );
   }
