@@ -24,7 +24,7 @@ class MultipleChoiceQuestion extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 128),
+  const SizedBox(height: 64),
         TextField(
           controller: TextEditingController(text: question),
           readOnly: true,
@@ -43,11 +43,13 @@ class MultipleChoiceQuestion extends StatelessWidget {
           final letra = (i < letras.length) ? letras[i] : String.fromCharCode(65 + i);
           Color bgColor = Colors.white;
           Color fgColor = Colors.black;
-          if (showFeedback && selectedIndex != null) {
+          if (showFeedback) {
+            // If feedback is showing, highlight the correct option green.
             if (i == correctIndex) {
               bgColor = Colors.green;
               fgColor = Colors.white;
-            } else if (i == selectedIndex && selectedIndex != correctIndex) {
+            } else if (selectedIndex != null && i == selectedIndex && selectedIndex != correctIndex) {
+              // If the user selected a wrong answer, mark it red.
               bgColor = Colors.red;
               fgColor = Colors.white;
             } else {
@@ -73,13 +75,13 @@ class MultipleChoiceQuestion extends StatelessWidget {
                     width: 32,
                     height: 32,
                     decoration: BoxDecoration(
-                      color: (showFeedback && selectedIndex != null)
-                          ? (i == correctIndex
-                              ? Colors.green
-                              : (i == selectedIndex && selectedIndex != correctIndex)
-                                  ? Colors.red
-                                  : Colors.grey)
-                          : Colors.red,
+            color: (showFeedback)
+              ? (i == correctIndex
+                ? Colors.green
+                : (selectedIndex != null && i == selectedIndex && selectedIndex != correctIndex)
+                  ? Colors.red
+                  : Colors.grey)
+              : Colors.red,
                       shape: BoxShape.circle,
                       boxShadow: const [
                         BoxShadow(
@@ -113,6 +115,9 @@ class MultipleChoiceQuestion extends StatelessWidget {
 class ImageRecognitionQuestion extends StatelessWidget {
   final String question;
   final List<String> imageUrls;
+  final int? selectedIndex;
+  final int? correctIndex;
+  final bool showFeedback;
   final void Function(int) onSelected;
 
   const ImageRecognitionQuestion({
@@ -120,6 +125,9 @@ class ImageRecognitionQuestion extends StatelessWidget {
     required this.question,
     required this.imageUrls,
     required this.onSelected,
+    this.selectedIndex,
+    this.correctIndex,
+    this.showFeedback = false,
   }) : super(key: key);
 
   @override
@@ -127,19 +135,44 @@ class ImageRecognitionQuestion extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-            const SizedBox(height: 128),
+  const SizedBox(height: 32),
         Text(
           question,
           style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
         ),
         const SizedBox(height: 16),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: List.generate(imageUrls.length, (i) => GestureDetector(
-            onTap: () => onSelected(i),
-            child: Image.network(imageUrls[i], width: 100, height: 100),
-          )),
+        Center(
+          child: Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 12,
+            runSpacing: 12,
+            children: List.generate(imageUrls.length, (i) {
+              Color borderColor = Colors.transparent;
+              if (showFeedback) {
+                // Always highlight correct answer when showing feedback
+                if (i == correctIndex) borderColor = Colors.green;
+                // If user selected a wrong one, mark it red
+                else if (selectedIndex != null && i == selectedIndex && selectedIndex != correctIndex) borderColor = Colors.red;
+                else borderColor = Colors.white.withOpacity(0.12);
+              }
+              return GestureDetector(
+                onTap: (showFeedback && selectedIndex != null) ? null : () => onSelected(i),
+                child: Container(
+                  width: 160,
+                  height: 160,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: borderColor, width: borderColor == Colors.transparent ? 0 : 4),
+                    borderRadius: BorderRadius.circular(8),
+                    color: Colors.white,
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: Image.network(imageUrls[i], fit: BoxFit.cover),
+                  ),
+                ),
+              );
+            }),
+          ),
         ),
       ],
     );

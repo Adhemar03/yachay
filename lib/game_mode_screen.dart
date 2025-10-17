@@ -6,6 +6,7 @@ import 'screens/timer_mode_screen.dart';
 import 'screens/category_mode_screen.dart';
 import 'screens/quick_mode_screen.dart';
 import 'screens/daily_challenge_screen.dart';
+import 'screens/perfil_screen.dart';
 
 class GameModeScreen extends StatefulWidget {
   const GameModeScreen({super.key});
@@ -20,6 +21,8 @@ class _GameModeScreenState extends State<GameModeScreen> {
   String? username;
   bool loadingPoints = true;
 
+  int _selectedIndex = 2;
+
   @override
   void initState() {
     super.initState();
@@ -30,7 +33,9 @@ class _GameModeScreenState extends State<GameModeScreen> {
     final prefs = await SharedPreferences.getInstance();
     final id = prefs.getInt('user_id');
     if (id != null) {
-      setState(() { userId = id; });
+      setState(() {
+        userId = id;
+      });
       // Consultar puntos y username en Supabase
       final userRow = await Supabase.instance.client
           .from('users')
@@ -43,7 +48,9 @@ class _GameModeScreenState extends State<GameModeScreen> {
         loadingPoints = false;
       });
     } else {
-      setState(() { loadingPoints = false; });
+      setState(() {
+        loadingPoints = false;
+      });
     }
   }
 
@@ -62,19 +69,27 @@ class _GameModeScreenState extends State<GameModeScreen> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.attach_money, color: Colors.yellow, size: 28),
+                    const Icon(
+                      Icons.attach_money,
+                      color: Colors.yellow,
+                      size: 28,
+                    ),
                     const SizedBox(width: 4),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 30,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.teal,
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
-                        loadingPoints
-                            ? '...'
-                            : (userPoints?.toString() ?? '0'),
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        loadingPoints ? '...' : (userPoints?.toString() ?? '0'),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
@@ -87,10 +102,11 @@ class _GameModeScreenState extends State<GameModeScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      loadingPoints
-                          ? '...'
-                          : (username ?? 'Usuario'),
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      loadingPoints ? '...' : (username ?? 'Usuario'),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ],
                 ),
@@ -99,14 +115,20 @@ class _GameModeScreenState extends State<GameModeScreen> {
                     const Icon(Icons.favorite, color: Colors.red, size: 26),
                     const SizedBox(width: 4),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.teal,
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: const Text(
                         "5:00",
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
@@ -134,7 +156,11 @@ class _GameModeScreenState extends State<GameModeScreen> {
 
           const Text(
             "Selecciona el modo de juego",
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
           ),
 
           const SizedBox(height: 20),
@@ -146,27 +172,83 @@ class _GameModeScreenState extends State<GameModeScreen> {
               mainAxisSpacing: 16,
               crossAxisSpacing: 16,
               children: [
-                _buildModeButton("Clásico", onTap: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const ClasicoScreen()));
-                }),
-                _buildModeButton("Contrarreloj", onTap: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const ContrarrelojScreen()));
-                }),
-                _buildModeButton("Elegir\ncategoría", onTap: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const CategoriaScreen()));
-                }),
-                _buildModeButton("Partida\nrápida", onTap: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const QuickModeScreen()));
-                }),
-                _buildModeButton("Desafío\ndiario", icon: Icons.star, onTap: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const DailyChallengeScreen()));
-                }),
+                _buildModeButton(
+                  "Clásico",
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ClasicoScreen()),
+                    );
+                  },
+                ),
+                _buildModeButton(
+                  "Contrarreloj",
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ContrarrelojScreen(),
+                      ),
+                    );
+                  },
+                ),
+                _buildModeButton(
+                  "Elegir\ncategoría",
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const CategoriaScreen(),
+                      ),
+                    );
+                  },
+                ),
+                _buildModeButton(
+                  "Partida\nrápida",
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const QuickModeScreen(),
+                      ),
+                    );
+                  },
+                ),
+                _buildModeButton(
+                  "Desafío\ndiario",
+                  icon: Icons.star,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const DailyChallengeScreen(),
+                      ),
+                    );
+                  },
+                ),
               ],
             ),
           ),
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+
+          // Lógica de navegación
+          switch (index) {
+            case 1: //Perfil
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PerfilScreen()),
+              );
+              break;
+            // Puedes agregar más si luego quieres que otros botones abran pantallas
+          }
+        },
         backgroundColor: Colors.black87,
         selectedItemColor: Colors.teal,
         unselectedItemColor: Colors.white,

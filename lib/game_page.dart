@@ -25,25 +25,47 @@ class GamePage extends StatefulWidget {
 
 // Clase State separada correctamente
 class _GamePageState extends State<GamePage> {
-  Future<void> _showScoreAndUpdateUser() async {
+  /// Updates the user's total points and returns the session points (finalScore)
+  Future<int> _showScoreAndUpdateUser() async {
     final prefs = await SharedPreferences.getInstance();
     final userId = prefs.getInt('user_id');
-    if (userId == null) return;
+    if (userId == null) return 0;
     final pointsToAdd = correctAnswers * 100;
     if (pointsToAdd > 0) {
-      final userData = await Supabase.instance.client
-          .from('users')
-          .select('in_game_points')
-          .eq('user_id', userId)
-          .maybeSingle();
-      final currentPoints = (userData != null && userData['in_game_points'] != null)
-          ? userData['in_game_points'] as int
-          : 0;
-      final newPoints = currentPoints + pointsToAdd;
-      await Supabase.instance.client
-          .from('users')
-          .update({'in_game_points': newPoints})
-          .eq('user_id', userId);
+      try {
+        final userData = await Supabase.instance.client
+            .from('users')
+            .select('in_game_points')
+            .eq('user_id', userId)
+            .maybeSingle();
+        final currentPoints = (userData != null && userData['in_game_points'] != null)
+            ? userData['in_game_points'] as int
+            : 0;
+        final newPoints = currentPoints + pointsToAdd;
+        await Supabase.instance.client
+            .from('users')
+            .update({'in_game_points': newPoints})
+            .eq('user_id', userId);
+      } catch (e) {
+        debugPrint('Error updating user points: $e');
+      }
+    }
+    return pointsToAdd;
+  }
+
+  /// Records a game session row in GameSessions (game_mode will be NULL)
+  Future<void> _recordGameSession(int finalScore) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('user_id');
+      if (userId == null) return;
+      await Supabase.instance.client.from('gamesessions').insert({
+        'user_id': userId,
+        'game_mode': null,
+        'final_score': finalScore,
+      });
+    } catch (e) {
+      debugPrint('Error recording game session: $e');
     }
   }
   int correctAnswers = 0;
@@ -95,7 +117,7 @@ class _GamePageState extends State<GamePage> {
     var query = Supabase.instance.client
       .from('questions')
       .select()
-      .eq('question_type', 'multiple_choice');
+      ;
       if (widget.nivel != null && widget.nivel!.isNotEmpty) {
         query = query.eq('difficulty', widget.nivel!.toLowerCase() as Object);
       }
@@ -105,7 +127,10 @@ class _GamePageState extends State<GamePage> {
       //debugPrint('Parámetros de consulta: nivel=${widget.nivel?.toLowerCase()}, categoryId=$categoryId');
       final res = await query.limit(10); // Trae más para barajar
       //debugPrint('Resultado de preguntas: $res');
-      final preguntasList = List<Map<String, dynamic>>.from(res);
+      final preguntasListRaw = List<Map<String, dynamic>>.from(res);
+      // Filtrar solo tipos soportados y mezclar
+      final allowed = ['multiple_choice', 'image_recognition', 'audio_recognition', 'fill_in_blank'];
+      final preguntasList = preguntasListRaw.where((q) => allowed.contains(q['question_type'] as String? ?? '')).toList();
       preguntasList.shuffle();
       setState(() {
         preguntas = preguntasList.take(5).toList();
@@ -123,7 +148,7 @@ class _GamePageState extends State<GamePage> {
     }
   }
 
-  void _nextQuestion() {
+  Future<void> _nextQuestion() async {
     timer?.cancel();
     if (current < preguntas.length - 1) {
       setState(() {
@@ -135,10 +160,12 @@ class _GamePageState extends State<GamePage> {
       });
       _startTimer();
     } else {
+      // Finalizar: actualizar puntos y registrar sesión
+      final sessionPoints = await _showScoreAndUpdateUser();
+      await _recordGameSession(sessionPoints);
       setState(() {
         finished = true;
       });
-      _showScoreAndUpdateUser();
     }
   }
 
@@ -163,10 +190,6 @@ class _GamePageState extends State<GamePage> {
           width: double.infinity,
           child: ElevatedButton(
             onPressed: () {
-              // Sumar puntos si la respuesta fue correcta
-              if (selectedIndex != null && selectedIndex == _getCorrectIndex()) {
-                correctAnswers++;
-              }
               setState(() {
                 showingExplanation = false;
                 showFeedback = false;
@@ -180,6 +203,33 @@ class _GamePageState extends State<GamePage> {
         ),
       ],
     );
+  }
+
+  int? _getCorrectIndexForCurrent() {
+    final q = preguntas[current];
+    final type = q['question_type'] as String? ?? 'multiple_choice';
+    final answerData = q['answer_data'];
+    try {
+      if (type == 'multiple_choice') {
+        final options = (answerData['options'] as List);
+        for (int i = 0; i < options.length; i++) {
+          if (options[i]['isCorrect'] == true) return i;
+        }
+      } else if (type == 'image_recognition') {
+        final options = (answerData['options'] as List);
+        for (int i = 0; i < options.length; i++) {
+          if (options[i]['isCorrect'] == true) return i;
+        }
+      } else if (type == 'audio_recognition') {
+        final options = (answerData['options'] as List);
+        for (int i = 0; i < options.length; i++) {
+          if (options[i]['isCorrect'] == true) return i;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error parsing correct index: $e');
+    }
+    return null;
   }
 
   @override
@@ -251,30 +301,58 @@ class _GamePageState extends State<GamePage> {
                                 ],
                               ),
                               const SizedBox(height: 24),
-                              MultipleChoiceQuestion(
-                                question: preguntas[current]['question_text'],
-                                options: (preguntas[current]['answer_data']['options'] as List)
-                                    .map<String>((opt) => opt['text'] as String)
-                                    .toList(),
-                                selectedIndex: selectedIndex,
-                                correctIndex: _getCorrectIndex(),
-                                showFeedback: showFeedback,
-                                onSelected: (i) async {
-                                  timer?.cancel();
-                                  final correct = _getCorrectIndex();
-                                  debugPrint('Índice de la opción correcta: $correct');
-                                  setState(() {
-                                    selectedIndex = i;
-                                    showFeedback = true;
-                                  });
-                                  await Future.delayed(const Duration(seconds: 2));
-                                  setState(() {
-                                    showingExplanation = true;
-                                  });
-                                },
-                              ),
+                              // Render según el tipo de pregunta
+                              Builder(builder: (_) {
+                                final q = preguntas[current];
+                                final type = q['question_type'] as String? ?? 'multiple_choice';
+                                final answerData = q['answer_data'];
+                                if (type == 'image_recognition') {
+                                  final imageUrls = (answerData['options'] as List)
+                                      .map<String>((o) => o['imageUrl'] as String)
+                                      .toList();
+                                  return ImageRecognitionQuestion(
+                                    question: q['question_text'],
+                                    imageUrls: imageUrls,
+                                    selectedIndex: selectedIndex,
+                                    correctIndex: _getCorrectIndexForCurrent(),
+                                    showFeedback: showFeedback,
+                                    onSelected: (i) async {
+                                      timer?.cancel();
+                                      setState(() {
+                                        selectedIndex = i;
+                                        showFeedback = true;
+                                      });
+                                      final correct = _getCorrectIndexForCurrent();
+                                      if (i == correct) correctAnswers++;
+                                      await Future.delayed(const Duration(seconds: 2));
+                                      setState(() { showingExplanation = true; });
+                                    },
+                                  );
+                                }
+                                // por defecto multiple choice
+                                final options = (answerData['options'] as List).map<String>((opt) => opt['text'] as String).toList();
+                                return MultipleChoiceQuestion(
+                                  question: q['question_text'],
+                                  options: options,
+                                  selectedIndex: selectedIndex,
+                                  correctIndex: _getCorrectIndexForCurrent(),
+                                  showFeedback: showFeedback,
+                                  onSelected: (i) async {
+                                    timer?.cancel();
+                                    setState(() {
+                                      selectedIndex = i;
+                                      showFeedback = true;
+                                    });
+                                    final correct = _getCorrectIndexForCurrent();
+                                    if (i == correct) correctAnswers++;
+                                    await Future.delayed(const Duration(seconds: 2));
+                                    setState(() { showingExplanation = true; });
+                                  },
+                                );
+                              }),
                               const SizedBox(height: 24),
                               Text('Pregunta ${current + 1} de ${preguntas.length}'),
+                              const SizedBox(height: 12), // baja un poco el botón
                               SizedBox(
                                 width: double.infinity,
                                 child: ElevatedButton(
@@ -329,14 +407,5 @@ class _GamePageState extends State<GamePage> {
   }
   // ...existing code...
 
-  int? _getCorrectIndex() {
-    final options = (preguntas[current]['answer_data']['options'] as List);
-    for (int i = 0; i < options.length; i++) {
-      if (options[i]['isCorrect'] == true) {
-        debugPrint('Índice de la opción correcta: $i');
-        return i;
-      }
-    }
-    return null;
-  }
+  // ...existing code...
 }
