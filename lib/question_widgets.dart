@@ -9,18 +9,20 @@ class MultipleChoiceQuestion extends StatelessWidget {
   final bool showFeedback;
 
   const MultipleChoiceQuestion({
-    Key? key,
+    super.key,
     required this.question,
     required this.options,
     required this.onSelected,
     this.selectedIndex,
     this.correctIndex,
     this.showFeedback = false,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
-    debugPrint('Render MCQ: correctIndex=$correctIndex, selectedIndex=$selectedIndex, showFeedback=$showFeedback');
+    debugPrint(
+      'Render MCQ: correctIndex=$correctIndex, selectedIndex=$selectedIndex, showFeedback=$showFeedback',
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -30,7 +32,11 @@ class MultipleChoiceQuestion extends StatelessWidget {
           readOnly: true,
           minLines: 3,
           maxLines: 3,
-          style: const TextStyle(fontSize: 30, fontWeight: FontWeight.bold, color: Colors.white),
+          style: const TextStyle(
+            fontSize: 30,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
           decoration: const InputDecoration(
             border: InputBorder.none,
             isDense: true,
@@ -40,7 +46,9 @@ class MultipleChoiceQuestion extends StatelessWidget {
         const SizedBox(height: 16),
         ...List.generate(options.length, (i) {
           final letras = ['A', 'B', 'C', 'D'];
-          final letra = (i < letras.length) ? letras[i] : String.fromCharCode(65 + i);
+          final letra = (i < letras.length)
+              ? letras[i]
+              : String.fromCharCode(65 + i);
           Color bgColor = Colors.white;
           Color fgColor = Colors.black;
           if (showFeedback && selectedIndex != null) {
@@ -58,9 +66,14 @@ class MultipleChoiceQuestion extends StatelessWidget {
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: ElevatedButton(
-              onPressed: (showFeedback && selectedIndex != null) ? null : () => onSelected(i),
+              onPressed: (showFeedback && selectedIndex != null)
+                  ? null
+                  : () => onSelected(i),
               style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 12,
+                  horizontal: 8,
+                ),
                 backgroundColor: bgColor,
                 foregroundColor: fgColor,
                 disabledBackgroundColor: bgColor,
@@ -75,17 +88,15 @@ class MultipleChoiceQuestion extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: (showFeedback && selectedIndex != null)
                           ? (i == correctIndex
-                              ? Colors.green
-                              : (i == selectedIndex && selectedIndex != correctIndex)
-                                  ? Colors.red
-                                  : Colors.grey)
+                                ? Colors.green
+                                : (i == selectedIndex &&
+                                      selectedIndex != correctIndex)
+                                ? Colors.red
+                                : Colors.grey)
                           : Colors.red,
                       shape: BoxShape.circle,
                       boxShadow: const [
-                        BoxShadow(
-                          color: Colors.black12,
-                          blurRadius: 2,
-                        ),
+                        BoxShadow(color: Colors.black12, blurRadius: 2),
                       ],
                     ),
                     alignment: Alignment.center,
@@ -99,7 +110,9 @@ class MultipleChoiceQuestion extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 16),
-                  Expanded(child: Text(options[i], style: TextStyle(color: fgColor))),
+                  Expanded(
+                    child: Text(options[i], style: TextStyle(color: fgColor)),
+                  ),
                 ],
               ),
             ),
@@ -116,30 +129,37 @@ class ImageRecognitionQuestion extends StatelessWidget {
   final void Function(int) onSelected;
 
   const ImageRecognitionQuestion({
-    Key? key,
+    super.key,
     required this.question,
     required this.imageUrls,
     required this.onSelected,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-            const SizedBox(height: 128),
+        const SizedBox(height: 128),
         Text(
           question,
-          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+          style: const TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
         const SizedBox(height: 16),
         Wrap(
           spacing: 12,
           runSpacing: 12,
-          children: List.generate(imageUrls.length, (i) => GestureDetector(
-            onTap: () => onSelected(i),
-            child: Image.network(imageUrls[i], width: 100, height: 100),
-          )),
+          children: List.generate(
+            imageUrls.length,
+            (i) => GestureDetector(
+              onTap: () => onSelected(i),
+              child: Image.network(imageUrls[i], width: 100, height: 100),
+            ),
+          ),
         ),
       ],
     );
@@ -153,12 +173,12 @@ class AudioRecognitionQuestion extends StatelessWidget {
   final void Function(int) onSelected;
 
   const AudioRecognitionQuestion({
-    Key? key,
+    super.key,
     required this.question,
     required this.audioUrls,
     required this.options,
     required this.onSelected,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -166,15 +186,20 @@ class AudioRecognitionQuestion extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-            const SizedBox(height: 128),
+        const SizedBox(height: 128),
         Text(
           question,
-          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+          style: const TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
         const SizedBox(height: 16),
         // Aquí solo se muestra un botón simulado para cada audio
-        ...List.generate(audioUrls.length, (i) =>
-          Padding(
+        ...List.generate(
+          audioUrls.length,
+          (i) => Padding(
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: ElevatedButton(
               onPressed: () {
@@ -186,8 +211,9 @@ class AudioRecognitionQuestion extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        ...List.generate(options.length, (i) =>
-          Padding(
+        ...List.generate(
+          options.length,
+          (i) => Padding(
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: ElevatedButton(
               onPressed: () => onSelected(i),
@@ -205,10 +231,10 @@ class FillInTheBlankQuestion extends StatelessWidget {
   final void Function(String) onSubmitted;
 
   const FillInTheBlankQuestion({
-    Key? key,
+    super.key,
     required this.question,
     required this.onSubmitted,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -216,10 +242,14 @@ class FillInTheBlankQuestion extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-            const SizedBox(height: 128),
+        const SizedBox(height: 128),
         Text(
           question,
-          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+          style: const TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
         const SizedBox(height: 16),
         TextField(

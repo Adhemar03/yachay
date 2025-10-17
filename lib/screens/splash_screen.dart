@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({Key? key}) : super(key: key);
+  const SplashScreen({super.key});
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -21,12 +21,7 @@ class _SplashScreenState extends State<SplashScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF162936),
-      body: Center(
-        child: Image.asset(
-          'assets/LogoYachay.png',
-          height: 180,
-        ),
-      ),
+      body: Center(child: Image.asset('assets/LogoYachay.png', height: 180)),
     );
   }
 }

@@ -6,7 +6,7 @@ import 'package:yachay/game_mode_screen.dart';
 import 'iniciar_secion.dart';
 
 class SignupScreen extends StatefulWidget {
-  const SignupScreen({Key? key}) : super(key: key);
+  const SignupScreen({super.key});
   @override
   State<SignupScreen> createState() => _SignupScreenState();
 }
@@ -20,6 +20,7 @@ class _SignupScreenState extends State<SignupScreen> {
         .maybeSingle();
     return response != null;
   }
+
   bool _isLoading = false;
   bool _showPassword = false;
   final _formKey = GlobalKey<FormState>();
@@ -208,13 +209,18 @@ class _SignupScreenState extends State<SignupScreen> {
                                   _isLoading = true;
                                 });
                                 final email = _emailController.text.trim();
-                                final password = _passwordController.text.trim();
+                                final password = _passwordController.text
+                                    .trim();
                                 final name = _nameController.text.trim();
                                 // Validar si ya existe username o email
-                                final existe = await _usuarioOCorreoExiste(name, email);
+                                final existe = await _usuarioOCorreoExiste(
+                                  name,
+                                  email,
+                                );
                                 if (existe) {
                                   setState(() {
-                                    _errorMessage = 'El usuario o correo ya está registrado.';
+                                    _errorMessage =
+                                        'El usuario o correo ya está registrado.';
                                     _successMessage = null;
                                     _isLoading = false;
                                   });
@@ -232,10 +238,15 @@ class _SignupScreenState extends State<SignupScreen> {
                                       .select('user_id')
                                       .eq('email', email)
                                       .maybeSingle();
-                                  if (userRow != null && userRow['user_id'] != null) {
-                                    final prefs = await SharedPreferences.getInstance();
+                                  if (userRow != null &&
+                                      userRow['user_id'] != null) {
+                                    final prefs =
+                                        await SharedPreferences.getInstance();
                                     await prefs.setBool('is_logged', true);
-                                    await prefs.setInt('user_id', userRow['user_id'] as int);
+                                    await prefs.setInt(
+                                      'user_id',
+                                      userRow['user_id'] as int,
+                                    );
                                   }
                                   if (mounted) {
                                     Navigator.of(context).pushReplacement(

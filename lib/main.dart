@@ -29,7 +29,8 @@ class MyApp extends StatelessWidget {
           foregroundColor: Colors.white,
         ),
       ),
-      home: const ScreenIniciarSecion(),
+      home:
+          const ScreenIniciarSecion(), //ScreenTablaClasificacionGlobal(), //ScreenIniciarSecion(),
     );
   }
 }

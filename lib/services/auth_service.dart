@@ -12,7 +12,7 @@ class AuthService {
         'password_hash': password, // Para pruebas, igual que login
         // Los demás campos usan valores por defecto
       }).select();
-      if (insertResponse == null || insertResponse.isEmpty) {
+      if (insertResponse.isEmpty) {
         return 'Error al guardar en tabla users.';
       }
       return null; // null = sin error
