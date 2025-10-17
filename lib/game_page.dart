@@ -352,6 +352,7 @@ class _GamePageState extends State<GamePage> {
                               }),
                               const SizedBox(height: 24),
                               Text('Pregunta ${current + 1} de ${preguntas.length}'),
+                              const SizedBox(height: 12), // baja un poco el botón
                               SizedBox(
                                 width: double.infinity,
                                 child: ElevatedButton(
