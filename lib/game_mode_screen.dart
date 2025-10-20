@@ -8,6 +8,9 @@ import 'screens/quick_mode_screen.dart';
 import 'screens/daily_challenge_screen.dart';
 import 'screens/perfil_screen.dart';
 
+import 'screens/leaderboard_screen.dart'; // Asegúrate de importar LeaderboardScreen
+import 'screens/stats_screen.dart'; // Asegúrate de importar correctamente la pantalla de estadísticas
+
 class GameModeScreen extends StatefulWidget {
   const GameModeScreen({super.key});
 
@@ -52,6 +55,13 @@ class _GameModeScreenState extends State<GameModeScreen> {
         loadingPoints = false;
       });
     }
+  }
+
+  // Método para manejar el cambio de índice en el BottomNavigationBar
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
   }
 
   @override
@@ -231,6 +241,7 @@ class _GameModeScreenState extends State<GameModeScreen> {
           ),
         ],
       ),
+
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: (index) {
@@ -240,7 +251,28 @@ class _GameModeScreenState extends State<GameModeScreen> {
 
           // Lógica de navegación
           switch (index) {
-            case 1: //Perfil
+            case 0:
+              // Pantalla de estadísticas
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const StatsScreen()),
+              );
+              break;
+            case 1:
+              // Pantalla de tabla de clasificación
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const LeaderboardScreen()),
+              );
+              break;
+            case 2: //Perfil
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PerfilScreen()),
+              );
+              break;
+            case 3:
+              // Pantalla de inicio
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const PerfilScreen()),
@@ -249,6 +281,7 @@ class _GameModeScreenState extends State<GameModeScreen> {
             // Puedes agregar más si luego quieres que otros botones abran pantallas
           }
         },
+
         backgroundColor: Colors.black87,
         selectedItemColor: Colors.teal,
         unselectedItemColor: Colors.white,
