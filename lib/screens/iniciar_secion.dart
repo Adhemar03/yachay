@@ -117,7 +117,7 @@ class _ScreenIniciarSecionState extends State<ScreenIniciarSecion> {
         padding: const EdgeInsets.only(top: 30),
         child: Column(
           children: [
-            Image.asset("assets/images/logo_YACHAY.png", height: 240),
+            Image.asset("assets/images/logoV1.png", height: 240),
 
             const SizedBox(height: 6),
             Text(
