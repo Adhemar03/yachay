@@ -278,25 +278,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
 
     return Scaffold(
       backgroundColor: PaletadeColores.textoB,
-      appBar: AppBar(
-        // >>> CAMBIO AÑADIDO: título dinámico según la pestaña
-        title: Text(
-          _selectedTab == 'amigos'
-              ? "Tabla de clasificación - Amigos"
-              : "Tabla de clasificación - Global",
-          style: const TextStyle(color: Colors.white),
-        ),
-        // <<< FIN CAMBIO AÑADIDO
-        backgroundColor: PaletadeColores.fondo,
-        elevation: 4,
 
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(
-            bottom: Radius.circular(5), // <-- radio solo en la parte inferior
-          ),
-        ),
-        // Puedes añadir aquí el botón de "Amigos" o dejarlo implícito
-      ),
       body: Column(
         children: [
           /// >>> CAMBIO AÑADIDO: FILA DE BOTONES (GENERAL | AMIGOS)
@@ -518,6 +500,37 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               ),
             ),
 
+          Padding(
+            padding: const EdgeInsets.only(
+              left: 25,
+              right: 25,
+              bottom: 5,
+              top: 10,
+            ),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: PaletadeColores.fondo,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(15),
+                  topRight: Radius.circular(15),
+                  bottomLeft: Radius.zero,
+                  bottomRight: Radius.zero,
+                ),
+              ),
+              child: const Text(
+                "Tabla de Clasificación",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+
           /// <<< FIN CAMBIO AÑADIDO: FILA DE BOTONES DE FILTRO DE FECHA
 
           // ❌ Se eliminó _buildTabToggle()
@@ -525,13 +538,18 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             child: Card(
               color: PaletadeColores.fondo,
               margin: const EdgeInsets.only(
-                top: 10,
+                top: 0,
                 left: 25,
                 right: 25,
                 bottom: 25,
               ),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(15),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.zero,
+                  topRight: Radius.zero,
+                  bottomLeft: Radius.circular(15),
+                  bottomRight: Radius.circular(15),
+                ),
               ),
               child: Padding(
                 padding: const EdgeInsets.only(top: 8.0),
@@ -620,7 +638,36 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           width: 40,
           child: Center(
             child: user.isCurrentUser
-                ? const Icon(Icons.star, color: Colors.yellow, size: 28)
+                ? Container(
+                    width: 35,
+                    height: 35,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: isTopOne
+                          ? const Color(0xFFFFD700) // color oro
+                          : isTopTwo
+                          ? const Color(0xFFC0C0C0) // color plata
+                          : isTopThree
+                          ? const Color(
+                              0xFFCD7F32,
+                            ) // leve tono para top3 (opcional)
+                          : const Color(0xFF939393), // sin fondo en los demás
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white12, width: 1),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          offset: const Offset(0, 2),
+                          blurRadius: 4,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.star,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                  )
                 : Container(
                     width: 35,
                     height: 35,
