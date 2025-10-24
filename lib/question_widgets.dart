@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:audioplayers/audioplayers.dart';
 
 class MultipleChoiceQuestion extends StatelessWidget {
   final String question;
@@ -24,7 +25,7 @@ class MultipleChoiceQuestion extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-  const SizedBox(height: 64),
+        const SizedBox(height: 24), // reducido desde 64 a 24
         TextField(
           controller: TextEditingController(text: question),
           readOnly: true,
@@ -135,7 +136,7 @@ class ImageRecognitionQuestion extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-  const SizedBox(height: 32),
+        const SizedBox(height: 12), // reducido desde 32 a 12
         Text(
           question,
           style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
@@ -179,10 +180,14 @@ class ImageRecognitionQuestion extends StatelessWidget {
   }
 }
 
-class AudioRecognitionQuestion extends StatelessWidget {
+class AudioRecognitionQuestion extends StatefulWidget {
   final String question;
+  // se acepta una lista de urls o una sola; aquí usamos la primera si vienen varias
   final List<String> audioUrls;
   final List<String> options;
+  final int? selectedIndex;
+  final int? correctIndex;
+  final bool showFeedback;
   final void Function(int) onSelected;
 
   const AudioRecognitionQuestion({
@@ -191,43 +196,165 @@ class AudioRecognitionQuestion extends StatelessWidget {
     required this.audioUrls,
     required this.options,
     required this.onSelected,
+    this.selectedIndex,
+    this.correctIndex,
+    this.showFeedback = false,
   }) : super(key: key);
 
   @override
+  State<AudioRecognitionQuestion> createState() => _AudioRecognitionQuestionState();
+}
+
+class _AudioRecognitionQuestionState extends State<AudioRecognitionQuestion> {
+  late final AudioPlayer _player;
+  bool _isPlaying = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _player = AudioPlayer();
+    _startPlayback();
+  }
+
+  Future<void> _startPlayback() async {
+    final url = (widget.audioUrls.isNotEmpty) ? widget.audioUrls.first : '';
+    if (url.isEmpty) return;
+    try {
+      // Autoplay audio when question is shown
+      await _player.setSourceUrl(url);
+      await _player.resume();
+      setState(() => _isPlaying = true);
+    } catch (e) {
+      debugPrint('Error reproduciendo audio: $e');
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant AudioRecognitionQuestion oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Si cambia la pregunta/audio reiniciamos reproducción
+    if (oldWidget.audioUrls.isEmpty && widget.audioUrls.isNotEmpty ||
+        (oldWidget.audioUrls.isNotEmpty && widget.audioUrls.isNotEmpty && oldWidget.audioUrls.first != widget.audioUrls.first)) {
+      _player.stop();
+      _startPlayback();
+    }
+    // Si mostramos feedback, podemos pausar el audio
+    if (widget.showFeedback && _isPlaying) {
+      _player.pause();
+      setState(() => _isPlaying = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _player.stop();
+    _player.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // Nota: Para reproducir audio real, se recomienda usar un paquete como audioplayers
+    debugPrint('Render AudioQ: correctIndex=${widget.correctIndex}, selectedIndex=${widget.selectedIndex}, showFeedback=${widget.showFeedback}');
+    final letras = ['A', 'B', 'C', 'D'];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-            const SizedBox(height: 128),
+        const SizedBox(height: 48), // reducido desde 128 a 48
         Text(
-          question,
+          widget.question,
           style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
         ),
-        const SizedBox(height: 16),
-        // Aquí solo se muestra un botón simulado para cada audio
-        ...List.generate(audioUrls.length, (i) =>
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: ElevatedButton(
-              onPressed: () {
-                // Aquí iría la lógica para reproducir el audio
-                onSelected(i);
+        const SizedBox(height: 12),
+        // Indicador de reproducción simple
+        Row(
+          children: [
+            IconButton(
+              onPressed: () async {
+                if (_isPlaying) {
+                  await _player.pause();
+                  setState(() => _isPlaying = false);
+                } else {
+                  await _player.resume();
+                  setState(() => _isPlaying = true);
+                }
               },
-              child: Text('Reproducir audio ${i + 1}'),
+              icon: Icon(
+                _isPlaying ? Icons.pause_circle_filled : Icons.play_circle_fill,
+                color: Colors.white,
+                size: 36,
+              ),
             ),
-          ),
+            const SizedBox(width: 8),
+            const Text('Reproduciendo...', style: TextStyle(color: Colors.white)),
+          ],
         ),
         const SizedBox(height: 16),
-        ...List.generate(options.length, (i) =>
-          Padding(
+        ...List.generate(widget.options.length, (i) {
+          final letra = (i < letras.length) ? letras[i] : String.fromCharCode(65 + i);
+          Color bgColor = Colors.white;
+          Color fgColor = Colors.black;
+          if (widget.showFeedback) {
+            if (i == widget.correctIndex) {
+              bgColor = Colors.green;
+              fgColor = Colors.white;
+            } else if (widget.selectedIndex != null && i == widget.selectedIndex && widget.selectedIndex != widget.correctIndex) {
+              bgColor = Colors.red;
+              fgColor = Colors.white;
+            } else {
+              bgColor = Colors.white;
+              fgColor = Colors.black;
+            }
+          }
+          return Padding(
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: ElevatedButton(
-              onPressed: () => onSelected(i),
-              child: Text(options[i]),
+              onPressed: (widget.showFeedback && widget.selectedIndex != null) ? null : () => widget.onSelected(i),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                backgroundColor: bgColor,
+                foregroundColor: fgColor,
+                disabledBackgroundColor: bgColor,
+                disabledForegroundColor: fgColor,
+                elevation: 2,
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: (widget.showFeedback)
+                          ? (i == widget.correctIndex
+                              ? Colors.green
+                              : (widget.selectedIndex != null && i == widget.selectedIndex && widget.selectedIndex != widget.correctIndex)
+                                  ? Colors.red
+                                  : Colors.grey)
+                          : Colors.red,
+                      shape: BoxShape.circle,
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Colors.black12,
+                          blurRadius: 2,
+                        ),
+                      ],
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      letra,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(child: Text(widget.options[i], style: TextStyle(color: fgColor))),
+                ],
+              ),
             ),
-          ),
-        ),
+          );
+        }),
       ],
     );
   }
@@ -249,7 +376,7 @@ class FillInTheBlankQuestion extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-            const SizedBox(height: 128),
+        const SizedBox(height: 48), // reducido desde 128 a 48
         Text(
           question,
           style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
