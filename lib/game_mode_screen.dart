@@ -8,6 +8,10 @@ import 'screens/quick_mode_screen.dart';
 import 'screens/daily_challenge_screen.dart';
 import 'screens/perfil_screen.dart';
 
+import 'screens/leaderboard_screen.dart'; // Asegúrate de importar LeaderboardScreen
+import 'screens/stats_screen.dart'; // Asegúrate de importar correctamente la pantalla de estadísticas
+import 'game_page.dart'; // Asegúrate de importar GamePage
+
 class GameModeScreen extends StatefulWidget {
   const GameModeScreen({super.key});
 
@@ -55,10 +59,10 @@ class _GameModeScreenState extends State<GameModeScreen> {
   }
 
   final List<Widget> _screens = [
-    Center(child: Text("📊 Estadísticas próximamente")),
+    StatsScreen(),
     PerfilScreen(),
-    const HomeContent(), // pantalla principal (actual contenido de game_mode)
-    Center(child: Text("🏆 Ranking próximamente")),
+    HomeContent(), // pantalla principal (actual contenido de game_mode)
+    LeaderboardScreen(),
     Center(child: Text("⚙️ Ajustes próximamente")),
   ];
 
