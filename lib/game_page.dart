@@ -179,11 +179,19 @@ class _GamePageState extends State<GamePage> {
       });
       _startTimer();
     } else {
-      // Finalizar: actualizar puntos y registrar sesión
-      final sessionPoints = await _showScoreAndUpdateUser();
-      await _recordGameSession(sessionPoints);
+      // Mostrar inmediatamente la pantalla de fin de partida
       setState(() {
         finished = true;
+      });
+
+      // Ejecutar actualización de puntos y registro de sesión en background
+      _showScoreAndUpdateUser().then((sessionPoints) {
+        // registrar sesión (no bloqueamos la UI)
+        _recordGameSession(sessionPoints).catchError((e) {
+          debugPrint('Error recording game session (background): $e');
+        });
+      }).catchError((e) {
+        debugPrint('Error updating user points (background): $e');
       });
     }
   }
