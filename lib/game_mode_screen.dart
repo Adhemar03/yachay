@@ -10,6 +10,7 @@ import 'screens/perfil_screen.dart';
 
 import 'screens/leaderboard_screen.dart'; // Asegúrate de importar LeaderboardScreen
 import 'screens/stats_screen.dart'; // Asegúrate de importar correctamente la pantalla de estadísticas
+import 'game_page.dart'; // Asegúrate de importar GamePage
 
 class GameModeScreen extends StatefulWidget {
   const GameModeScreen({super.key});

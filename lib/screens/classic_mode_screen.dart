@@ -45,7 +45,7 @@ class ClasicoScreen extends StatelessWidget {
               builder: (_) => GamePage(
                 modo: 'clásico',
                 nivel: dificultad,
-                categoria: categoria,
+                categoria: null,
               ),
             ),
           );

@@ -98,42 +98,55 @@ class _GamePageState extends State<GamePage> {
   }
 
   Future<void> _loadQuestions() async {
-    setState(() { loading = true; });
+    setState(() {
+      loading = true;
+    });
     try {
-      // 1. Obtener category_id desde Categories
+      // normalizar categoría recibida
+      final rawCategoria = widget.categoria?.trim();
+      final categoriaSelected = (rawCategoria == null || rawCategoria.isEmpty) ? null : rawCategoria;
+      debugPrint('Categoria recibida en GamePage: $categoriaSelected, nivel: ${widget.nivel}');
+
+      // 1. Obtener category_id desde Categories solo si hay categoría seleccionada
       int? categoryId;
-      if (widget.categoria != null && widget.categoria!.isNotEmpty) {
-        //debugPrint('Buscando categoría por nombre: "${widget.categoria}"');
+      if (categoriaSelected != null) {
         final catRes = await Supabase.instance.client
             .from('categories')
             .select('category_id, name')
-            .ilike('name', '%${widget.categoria ?? ''}%')
+            .ilike('name', '%$categoriaSelected%')
             .maybeSingle();
-        //debugPrint('Resultado consulta categoría: $catRes');
-        categoryId = catRes?['category_id'];
+        debugPrint('Resultado consulta categoría: $catRes');
+        categoryId = catRes?['category_id'] as int?;
       }
 
       // 2. Consultar preguntas filtrando solo si corresponde
-    var query = Supabase.instance.client
-      .from('questions')
-      .select()
-      ;
+      var query = Supabase.instance.client.from('questions').select();
+
       if (widget.nivel != null && widget.nivel!.isNotEmpty) {
-        query = query.eq('difficulty', widget.nivel!.toLowerCase() as Object);
+        // asegúrate que la dificultad en la BD está en minúsculas
+        query = query.eq('difficulty', widget.nivel!.toLowerCase());
       }
       if (categoryId != null) {
         query = query.eq('category_id', categoryId);
       }
-      //debugPrint('Parámetros de consulta: nivel=${widget.nivel?.toLowerCase()}, categoryId=$categoryId');
-      final res = await query.limit(10); // Trae más para barajar
-      //debugPrint('Resultado de preguntas: $res');
-      final preguntasListRaw = List<Map<String, dynamic>>.from(res);
-      // Filtrar solo tipos soportados y mezclar
+
+      // Traer un conjunto amplio (sin limitar a 10) para poder barajar y elegir 5
+      // Ajusta el rango si tu tabla es enorme; aquí traemos hasta 1000 registros como ejemplo.
+      final res = await query.range(0, 999);
+
+      // Convertir resultado a lista y filtrar solo tipos soportados
+      final preguntasListRaw = (res is List) ? List<Map<String, dynamic>>.from(res) : <Map<String, dynamic>>[];
       final allowed = ['multiple_choice', 'image_recognition', 'audio_recognition', 'fill_in_blank'];
-      final preguntasList = preguntasListRaw.where((q) => allowed.contains(q['question_type'] as String? ?? '')).toList();
+      final preguntasList = preguntasListRaw.where((q) => allowed.contains((q['question_type'] as String?) ?? '')).toList();
+
+      // Mezclar y tomar 5 preguntas aleatorias que mantengan su nivel y (si aplica) su categoría
       preguntasList.shuffle();
+      final selected = preguntasList.take(5).toList();
+
+      debugPrint('Preguntas encontradas: ${preguntasList.length}, seleccionadas: ${selected.length}');
+
       setState(() {
-        preguntas = preguntasList.take(5).toList();
+        preguntas = selected;
         loading = false;
         current = 0;
         selectedIndex = null;
@@ -141,9 +154,15 @@ class _GamePageState extends State<GamePage> {
         showingExplanation = false;
         timeLeft = questionDuration;
       });
-      _startTimer();
+
+      // Iniciar timer sólo si hay preguntas
+      if (preguntas.isNotEmpty) {
+        _startTimer();
+      }
     } catch (e) {
-      setState(() { loading = false; });
+      setState(() {
+        loading = false;
+      });
       debugPrint('Error al cargar preguntas: $e');
     }
   }
@@ -306,6 +325,7 @@ class _GamePageState extends State<GamePage> {
                                 final q = preguntas[current];
                                 final type = q['question_type'] as String? ?? 'multiple_choice';
                                 final answerData = q['answer_data'];
+
                                 if (type == 'image_recognition') {
                                   final imageUrls = (answerData['options'] as List)
                                       .map<String>((o) => o['imageUrl'] as String)
@@ -325,10 +345,43 @@ class _GamePageState extends State<GamePage> {
                                       final correct = _getCorrectIndexForCurrent();
                                       if (i == correct) correctAnswers++;
                                       await Future.delayed(const Duration(seconds: 2));
+                                      if (!mounted) return;
                                       setState(() { showingExplanation = true; });
                                     },
                                   );
                                 }
+
+                                if (type == 'audio_recognition') {
+                                  // intenta obtener audio desde media_url o desde answer_data si aplica
+                                  final mediaUrl = q['media_url'] as String?;
+                                  final audioUrls = <String>[];
+                                  if (mediaUrl != null && mediaUrl.isNotEmpty) audioUrls.add(mediaUrl);
+                                  // opciones de texto
+                                  final options = (answerData['options'] as List)
+                                      .map<String>((opt) => opt['text'] as String)
+                                      .toList();
+                                  return AudioRecognitionQuestion(
+                                    question: q['question_text'],
+                                    audioUrls: audioUrls,
+                                    options: options,
+                                    selectedIndex: selectedIndex,
+                                    correctIndex: _getCorrectIndexForCurrent(),
+                                    showFeedback: showFeedback,
+                                    onSelected: (i) async {
+                                      timer?.cancel();
+                                      setState(() {
+                                        selectedIndex = i;
+                                        showFeedback = true;
+                                      });
+                                      final correct = _getCorrectIndexForCurrent();
+                                      if (i == correct) correctAnswers++;
+                                      await Future.delayed(const Duration(seconds: 2));
+                                      if (!mounted) return;
+                                      setState(() { showingExplanation = true; });
+                                    },
+                                  );
+                                }
+
                                 // por defecto multiple choice
                                 final options = (answerData['options'] as List).map<String>((opt) => opt['text'] as String).toList();
                                 return MultipleChoiceQuestion(
@@ -346,6 +399,7 @@ class _GamePageState extends State<GamePage> {
                                     final correct = _getCorrectIndexForCurrent();
                                     if (i == correct) correctAnswers++;
                                     await Future.delayed(const Duration(seconds: 2));
+                                    if (!mounted) return;
                                     setState(() { showingExplanation = true; });
                                   },
                                 );
