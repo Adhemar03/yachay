@@ -12,12 +12,8 @@ class GamePage extends StatefulWidget {
   final String? nivel;
   final String? categoria;
 
-  const GamePage({
-    Key? key,
-    required this.modo,
-    this.nivel,
-    this.categoria,
-  }) : super(key: key);
+  const GamePage({Key? key, required this.modo, this.nivel, this.categoria})
+    : super(key: key);
 
   @override
   State<GamePage> createState() => _GamePageState();
@@ -38,7 +34,8 @@ class _GamePageState extends State<GamePage> {
             .select('in_game_points')
             .eq('user_id', userId)
             .maybeSingle();
-        final currentPoints = (userData != null && userData['in_game_points'] != null)
+        final currentPoints =
+            (userData != null && userData['in_game_points'] != null)
             ? userData['in_game_points'] as int
             : 0;
         final newPoints = currentPoints + pointsToAdd;
@@ -68,6 +65,7 @@ class _GamePageState extends State<GamePage> {
       debugPrint('Error recording game session: $e');
     }
   }
+
   int correctAnswers = 0;
   bool finished = false;
   static const int questionDuration = 10; // segundos por pregunta
@@ -104,8 +102,12 @@ class _GamePageState extends State<GamePage> {
     try {
       // normalizar categoría recibida
       final rawCategoria = widget.categoria?.trim();
-      final categoriaSelected = (rawCategoria == null || rawCategoria.isEmpty) ? null : rawCategoria;
-      debugPrint('Categoria recibida en GamePage: $categoriaSelected, nivel: ${widget.nivel}');
+      final categoriaSelected = (rawCategoria == null || rawCategoria.isEmpty)
+          ? null
+          : rawCategoria;
+      debugPrint(
+        'Categoria recibida en GamePage: $categoriaSelected, nivel: ${widget.nivel}',
+      );
 
       // 1. Obtener category_id desde Categories solo si hay categoría seleccionada
       int? categoryId;
@@ -135,15 +137,26 @@ class _GamePageState extends State<GamePage> {
       final res = await query.range(0, 999);
 
       // Convertir resultado a lista y filtrar solo tipos soportados
-      final preguntasListRaw = (res is List) ? List<Map<String, dynamic>>.from(res) : <Map<String, dynamic>>[];
-      final allowed = ['multiple_choice', 'image_recognition', 'audio_recognition', 'fill_in_blank'];
-      final preguntasList = preguntasListRaw.where((q) => allowed.contains((q['question_type'] as String?) ?? '')).toList();
+      final preguntasListRaw = (res is List)
+          ? List<Map<String, dynamic>>.from(res)
+          : <Map<String, dynamic>>[];
+      final allowed = [
+        'multiple_choice',
+        'image_recognition',
+        'audio_recognition',
+        'fill_in_blank',
+      ];
+      final preguntasList = preguntasListRaw
+          .where((q) => allowed.contains((q['question_type'] as String?) ?? ''))
+          .toList();
 
       // Mezclar y tomar 5 preguntas aleatorias que mantengan su nivel y (si aplica) su categoría
       preguntasList.shuffle();
       final selected = preguntasList.take(5).toList();
 
-      debugPrint('Preguntas encontradas: ${preguntasList.length}, seleccionadas: ${selected.length}');
+      debugPrint(
+        'Preguntas encontradas: ${preguntasList.length}, seleccionadas: ${selected.length}',
+      );
 
       setState(() {
         preguntas = selected;
@@ -185,27 +198,33 @@ class _GamePageState extends State<GamePage> {
       });
 
       // Ejecutar actualización de puntos y registro de sesión en background
-      _showScoreAndUpdateUser().then((sessionPoints) {
-        // registrar sesión (no bloqueamos la UI)
-        _recordGameSession(sessionPoints).catchError((e) {
-          debugPrint('Error recording game session (background): $e');
-        });
-      }).catchError((e) {
-        debugPrint('Error updating user points (background): $e');
-      });
+      _showScoreAndUpdateUser()
+          .then((sessionPoints) {
+            // registrar sesión (no bloqueamos la UI)
+            _recordGameSession(sessionPoints).catchError((e) {
+              debugPrint('Error recording game session (background): $e');
+            });
+          })
+          .catchError((e) {
+            debugPrint('Error updating user points (background): $e');
+          });
     }
   }
 
-
   Widget _buildExplanationScreen() {
-    final explanation = preguntas[current]['explanation'] ?? 'Sin explicación disponible.';
+    final explanation =
+        preguntas[current]['explanation'] ?? 'Sin explicación disponible.';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 64),
         const Text(
           'Explicación:',
-          style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white),
+          style: TextStyle(
+            fontSize: 26,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
         const SizedBox(height: 24),
         Text(
@@ -225,7 +244,11 @@ class _GamePageState extends State<GamePage> {
               _nextQuestion();
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
-            child: Text(current < preguntas.length - 1 ? 'Siguiente pregunta' : 'Finalizar'),
+            child: Text(
+              current < preguntas.length - 1
+                  ? 'Siguiente pregunta'
+                  : 'Finalizar',
+            ),
           ),
         ),
       ],
@@ -252,6 +275,11 @@ class _GamePageState extends State<GamePage> {
         for (int i = 0; i < options.length; i++) {
           if (options[i]['isCorrect'] == true) return i;
         }
+      } else if (type == 'fill_in_blank') {
+        final options = (answerData['options'] as List);
+        for (int i = 0; i < options.length; i++) {
+          if (options[i]['isCorrect'] == true) return i;
+        }
       }
     } catch (e) {
       debugPrint('Error parsing correct index: $e');
@@ -268,29 +296,44 @@ class _GamePageState extends State<GamePage> {
         child: loading
             ? const Center(child: CircularProgressIndicator())
             : preguntas.isEmpty
-                ? const Center(child: Text('No hay preguntas disponibles.'))
-                : (finished
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text('¡Fin de la partida!', style: TextStyle(fontSize: 28, color: Colors.white, fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 24),
-                            Text('Puntaje obtenido: ${correctAnswers * 100}', style: TextStyle(fontSize: 22, color: Colors.tealAccent)),
-                            const SizedBox(height: 32),
-                            ElevatedButton(
-                              onPressed: () {
-                                Navigator.of(context).pushAndRemoveUntil(
-                                  MaterialPageRoute(builder: (_) => const GameModeScreen()),
-                                  (route) => false,
-                                );
-                              },
-                              child: const Text('Volver al inicio'),
+            ? const Center(child: Text('No hay preguntas disponibles.'))
+            : (finished
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            '¡Fin de la partida!',
+                            style: TextStyle(
+                              fontSize: 28,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
                             ),
-                          ],
-                        ),
-                      )
-                    : (showingExplanation
+                          ),
+                          const SizedBox(height: 24),
+                          Text(
+                            'Puntaje obtenido: ${correctAnswers * 100}',
+                            style: TextStyle(
+                              fontSize: 22,
+                              color: Colors.tealAccent,
+                            ),
+                          ),
+                          const SizedBox(height: 32),
+                          ElevatedButton(
+                            onPressed: () {
+                              Navigator.of(context).pushAndRemoveUntil(
+                                MaterialPageRoute(
+                                  builder: (_) => const GameModeScreen(),
+                                ),
+                                (route) => false,
+                              );
+                            },
+                            child: const Text('Volver al inicio'),
+                          ),
+                        ],
+                      ),
+                    )
+                  : (showingExplanation
                         ? _buildExplanationScreen()
                         : Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -310,10 +353,15 @@ class _GamePageState extends State<GamePage> {
                                   ),
                                   AnimatedContainer(
                                     duration: const Duration(milliseconds: 300),
-                                    width: (MediaQuery.of(context).size.width - 48) * (timeLeft / questionDuration),
+                                    width:
+                                        (MediaQuery.of(context).size.width -
+                                            48) *
+                                        (timeLeft / questionDuration),
                                     height: 18,
                                     decoration: BoxDecoration(
-                                      color: timeLeft > 3 ? Colors.teal : Colors.red,
+                                      color: timeLeft > 3
+                                          ? Colors.teal
+                                          : Colors.red,
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                   ),
@@ -321,7 +369,10 @@ class _GamePageState extends State<GamePage> {
                                     child: Center(
                                       child: Text(
                                         'Tiempo: $timeLeft s',
-                                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -329,48 +380,133 @@ class _GamePageState extends State<GamePage> {
                               ),
                               const SizedBox(height: 24),
                               // Render según el tipo de pregunta
-                              Builder(builder: (_) {
-                                final q = preguntas[current];
-                                final type = q['question_type'] as String? ?? 'multiple_choice';
-                                final answerData = q['answer_data'];
+                              Builder(
+                                builder: (_) {
+                                  final q = preguntas[current];
+                                  final type =
+                                      q['question_type'] as String? ??
+                                      'multiple_choice';
+                                  final answerData = q['answer_data'];
 
-                                if (type == 'image_recognition') {
-                                  final imageUrls = (answerData['options'] as List)
-                                      .map<String>((o) => o['imageUrl'] as String)
-                                      .toList();
-                                  return ImageRecognitionQuestion(
-                                    question: q['question_text'],
-                                    imageUrls: imageUrls,
-                                    selectedIndex: selectedIndex,
-                                    correctIndex: _getCorrectIndexForCurrent(),
-                                    showFeedback: showFeedback,
-                                    onSelected: (i) async {
-                                      timer?.cancel();
-                                      setState(() {
-                                        selectedIndex = i;
-                                        showFeedback = true;
-                                      });
-                                      final correct = _getCorrectIndexForCurrent();
-                                      if (i == correct) correctAnswers++;
-                                      await Future.delayed(const Duration(seconds: 2));
-                                      if (!mounted) return;
-                                      setState(() { showingExplanation = true; });
-                                    },
-                                  );
-                                }
+                                  if (type == 'image_recognition') {
+                                    final imageUrls =
+                                        (answerData['options'] as List)
+                                            .map<String>(
+                                              (o) => o['imageUrl'] as String,
+                                            )
+                                            .toList();
+                                    return ImageRecognitionQuestion(
+                                      question: q['question_text'],
+                                      imageUrls: imageUrls,
+                                      selectedIndex: selectedIndex,
+                                      correctIndex:
+                                          _getCorrectIndexForCurrent(),
+                                      showFeedback: showFeedback,
+                                      onSelected: (i) async {
+                                        timer?.cancel();
+                                        setState(() {
+                                          selectedIndex = i;
+                                          showFeedback = true;
+                                        });
+                                        final correct =
+                                            _getCorrectIndexForCurrent();
+                                        if (i == correct) correctAnswers++;
+                                        await Future.delayed(
+                                          const Duration(seconds: 2),
+                                        );
+                                        if (!mounted) return;
+                                        setState(() {
+                                          showingExplanation = true;
+                                        });
+                                      },
+                                    );
+                                  }
 
-                                if (type == 'audio_recognition') {
-                                  // intenta obtener audio desde media_url o desde answer_data si aplica
-                                  final mediaUrl = q['media_url'] as String?;
-                                  final audioUrls = <String>[];
-                                  if (mediaUrl != null && mediaUrl.isNotEmpty) audioUrls.add(mediaUrl);
-                                  // opciones de texto
-                                  final options = (answerData['options'] as List)
-                                      .map<String>((opt) => opt['text'] as String)
-                                      .toList();
-                                  return AudioRecognitionQuestion(
+                                  if (type == 'audio_recognition') {
+                                    // intenta obtener audio desde media_url o desde answer_data si aplica
+                                    final mediaUrl = q['media_url'] as String?;
+                                    final audioUrls = <String>[];
+                                    if (mediaUrl != null && mediaUrl.isNotEmpty)
+                                      audioUrls.add(mediaUrl);
+                                    // opciones de texto
+                                    final options =
+                                        (answerData['options'] as List)
+                                            .map<String>(
+                                              (opt) => opt['text'] as String,
+                                            )
+                                            .toList();
+                                    return AudioRecognitionQuestion(
+                                      question: q['question_text'],
+                                      audioUrls: audioUrls,
+                                      options: options,
+                                      selectedIndex: selectedIndex,
+                                      correctIndex:
+                                          _getCorrectIndexForCurrent(),
+                                      showFeedback: showFeedback,
+                                      onSelected: (i) async {
+                                        timer?.cancel();
+                                        setState(() {
+                                          selectedIndex = i;
+                                          showFeedback = true;
+                                        });
+                                        final correct =
+                                            _getCorrectIndexForCurrent();
+                                        if (i == correct) correctAnswers++;
+                                        await Future.delayed(
+                                          const Duration(seconds: 2),
+                                        );
+                                        if (!mounted) return;
+                                        setState(() {
+                                          showingExplanation = true;
+                                        });
+                                      },
+                                    );
+                                  }
+
+                                  if (type == 'fill_in_blank') {
+                                    final options =
+                                        (answerData['options'] as List)
+                                            .map<String>(
+                                              (opt) => opt['text'] as String,
+                                            )
+                                            .toList();
+                                    return FillInTheBlankDragQuestion(
+                                      question: q['question_text'],
+                                      options: options,
+                                      selectedIndex: selectedIndex,
+                                      correctIndex:
+                                          _getCorrectIndexForCurrent(),
+                                      showFeedback: showFeedback,
+                                      onDropped: (i) async {
+                                        // comportamiento idéntico al de las otras preguntas: parar timer, mostrar feedback y contar aciertos
+                                        timer?.cancel();
+                                        setState(() {
+                                          selectedIndex = i;
+                                          showFeedback = true;
+                                        });
+                                        final correct =
+                                            _getCorrectIndexForCurrent();
+                                        if (i == correct) correctAnswers++;
+                                        await Future.delayed(
+                                          const Duration(seconds: 2),
+                                        );
+                                        if (!mounted) return;
+                                        setState(() {
+                                          showingExplanation = true;
+                                        });
+                                      },
+                                    );
+                                  }
+
+                                  // por defecto multiple choice
+                                  final options =
+                                      (answerData['options'] as List)
+                                          .map<String>(
+                                            (opt) => opt['text'] as String,
+                                          )
+                                          .toList();
+                                  return MultipleChoiceQuestion(
                                     question: q['question_text'],
-                                    audioUrls: audioUrls,
                                     options: options,
                                     selectedIndex: selectedIndex,
                                     correctIndex: _getCorrectIndexForCurrent(),
@@ -381,51 +517,42 @@ class _GamePageState extends State<GamePage> {
                                         selectedIndex = i;
                                         showFeedback = true;
                                       });
-                                      final correct = _getCorrectIndexForCurrent();
+                                      final correct =
+                                          _getCorrectIndexForCurrent();
                                       if (i == correct) correctAnswers++;
-                                      await Future.delayed(const Duration(seconds: 2));
+                                      await Future.delayed(
+                                        const Duration(seconds: 2),
+                                      );
                                       if (!mounted) return;
-                                      setState(() { showingExplanation = true; });
+                                      setState(() {
+                                        showingExplanation = true;
+                                      });
                                     },
                                   );
-                                }
-
-                                // por defecto multiple choice
-                                final options = (answerData['options'] as List).map<String>((opt) => opt['text'] as String).toList();
-                                return MultipleChoiceQuestion(
-                                  question: q['question_text'],
-                                  options: options,
-                                  selectedIndex: selectedIndex,
-                                  correctIndex: _getCorrectIndexForCurrent(),
-                                  showFeedback: showFeedback,
-                                  onSelected: (i) async {
-                                    timer?.cancel();
-                                    setState(() {
-                                      selectedIndex = i;
-                                      showFeedback = true;
-                                    });
-                                    final correct = _getCorrectIndexForCurrent();
-                                    if (i == correct) correctAnswers++;
-                                    await Future.delayed(const Duration(seconds: 2));
-                                    if (!mounted) return;
-                                    setState(() { showingExplanation = true; });
-                                  },
-                                );
-                              }),
+                                },
+                              ),
                               const SizedBox(height: 24),
-                              Text('Pregunta ${current + 1} de ${preguntas.length}'),
-                              const SizedBox(height: 12), // baja un poco el botón
+                              Text(
+                                'Pregunta ${current + 1} de ${preguntas.length}',
+                              ),
+                              const SizedBox(
+                                height: 12,
+                              ), // baja un poco el botón
                               SizedBox(
                                 width: double.infinity,
                                 child: ElevatedButton(
                                   onPressed: () {
                                     timer?.cancel();
                                     Navigator.of(context).pushAndRemoveUntil(
-                                      MaterialPageRoute(builder: (_) => const GameModeScreen()),
+                                      MaterialPageRoute(
+                                        builder: (_) => const GameModeScreen(),
+                                      ),
                                       (route) => false,
                                     );
                                   },
-                                  child: const Text('Terminar partida y volver al inicio'),
+                                  child: const Text(
+                                    'Terminar partida y volver al inicio',
+                                  ),
                                 ),
                               ),
                             ],
