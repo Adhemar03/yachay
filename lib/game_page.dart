@@ -76,6 +76,7 @@ class _GamePageState extends State<GamePage> {
   bool loading = true;
   int current = 0;
   int? selectedIndex;
+  bool? selectedBool;
   bool showFeedback = false;
   bool showingExplanation = false;
 
@@ -145,6 +146,7 @@ class _GamePageState extends State<GamePage> {
         'image_recognition',
         'audio_recognition',
         'fill_in_blank',
+        'true_false',
       ];
       final preguntasList = preguntasListRaw
           .where((q) => allowed.contains((q['question_type'] as String?) ?? ''))
@@ -163,6 +165,7 @@ class _GamePageState extends State<GamePage> {
         loading = false;
         current = 0;
         selectedIndex = null;
+        selectedBool = null;
         showFeedback = false;
         showingExplanation = false;
         timeLeft = questionDuration;
@@ -186,6 +189,7 @@ class _GamePageState extends State<GamePage> {
       setState(() {
         current++;
         selectedIndex = null;
+        selectedBool = null;
         showFeedback = false;
         showingExplanation = false;
         timeLeft = questionDuration;
@@ -283,6 +287,24 @@ class _GamePageState extends State<GamePage> {
       }
     } catch (e) {
       debugPrint('Error parsing correct index: $e');
+    }
+    return null;
+  }
+
+  /// Devuelve true/false para preguntas de tipo `true_false` si se puede determinar
+  bool? _getCorrectBoolForCurrent() {
+    try {
+      final q = preguntas[current];
+      final answerData = q['answer_data'];
+      if (answerData == null) return null;
+      
+      // Manejo del nuevo formato de respuesta
+      if (answerData is Map && answerData.containsKey('correct_answer')) {
+        final correctAnswer = answerData['correct_answer'].toString().toLowerCase();
+        return correctAnswer == 'true' || correctAnswer == 'verdadero';
+      }
+    } catch (e) {
+      debugPrint('Error parsing correct bool: $e');
     }
     return null;
   }
@@ -498,6 +520,29 @@ class _GamePageState extends State<GamePage> {
                                     );
                                   }
 
+                                    if (type == 'true_false') {
+                                      final correctBool = _getCorrectBoolForCurrent();
+                                      return TrueFalseQuestion(
+                                        question: q['question_text'],
+                                        selectedAnswer: selectedBool,
+                                        correctAnswer: correctBool,
+                                        showFeedback: showFeedback,
+                                        onSelected: (bool ans) async {
+                                          timer?.cancel();
+                                          setState(() {
+                                            selectedBool = ans;
+                                            showFeedback = true;
+                                          });
+                                          if (correctBool != null && ans == correctBool) correctAnswers++;
+                                          await Future.delayed(const Duration(seconds: 2));
+                                          if (!mounted) return;
+                                          setState(() {
+                                            showingExplanation = true;
+                                          });
+                                        },
+                                      );
+                                    }
+
                                   // por defecto multiple choice
                                   final options =
                                       (answerData['options'] as List)
@@ -524,9 +569,7 @@ class _GamePageState extends State<GamePage> {
                                         const Duration(seconds: 2),
                                       );
                                       if (!mounted) return;
-                                      setState(() {
-                                        showingExplanation = true;
-                                      });
+                                      _nextQuestion();
                                     },
                                   );
                                 },
@@ -579,15 +622,17 @@ class _GamePageState extends State<GamePage> {
       } else {
         t.cancel();
         // Si no se seleccionó opción, mostrar explicación automáticamente
-        if (selectedIndex == null && !showingExplanation) {
+        final curType = (preguntas.isNotEmpty && current < preguntas.length)
+            ? (preguntas[current]['question_type'] as String? ?? '')
+            : '';
+        final noAnswer = curType == 'true_false' ? (selectedBool == null) : (selectedIndex == null);
+        if (noAnswer) {
           setState(() {
             showFeedback = true;
           });
           Future.delayed(const Duration(seconds: 2), () {
             if (mounted) {
-              setState(() {
-                showingExplanation = true;
-              });
+              _nextQuestion();
             }
           });
         }

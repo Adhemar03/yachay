@@ -659,11 +659,6 @@ class _FillInTheBlankDragQuestionState
               'Arrastra una opción al recuadro.',
               style: TextStyle(color: Colors.white70),
             ),
-          if (widget.showFeedback)
-            const Text(
-              'La respuesta correcta era',
-              style: TextStyle(color: Colors.white70),
-            ),
         ],
       );
     }
@@ -797,6 +792,125 @@ class _FillInTheBlankDragQuestionState
             'Mostrando respuesta correcta.',
             style: TextStyle(color: Colors.white70),
           ),
+      ],
+    );
+  }
+}
+
+// Widget para preguntas de Verdadero / Falso
+class TrueFalseQuestion extends StatelessWidget {
+  final String question;
+  final bool? selectedAnswer; // true = Verdadero, false = Falso
+  final bool? correctAnswer;
+  final bool showFeedback;
+  final void Function(bool) onSelected;
+
+  const TrueFalseQuestion({
+    Key? key,
+    required this.question,
+    required this.onSelected,
+    this.selectedAnswer,
+    this.correctAnswer,
+    this.showFeedback = false,
+  }) : super(key: key);
+
+  Color colorFor(bool value) {
+    if (showFeedback && correctAnswer != null) {
+      // Si es la respuesta correcta, siempre verde
+      if (value == correctAnswer) {
+        return Colors.green;
+      }
+      // Si fue seleccionada y es incorrecta, rojo
+      if (value == selectedAnswer && value != correctAnswer) {
+        return Colors.red;
+      }
+      // Si no fue seleccionada y no es la correcta, blanco
+      return Colors.white;
+    }
+    // Si aún no hay feedback, blanco por defecto
+    return Colors.white;
+  }
+
+  Color textColorFor(bool value) {
+    final bg = colorFor(value);
+    // Texto blanco para botones verdes o rojos
+    if (bg == Colors.green || bg == Colors.red) {
+      return Colors.white;
+    }
+    // Texto negro para botones blancos
+    return Colors.black;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final disabled = showFeedback && selectedAnswer != null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 16),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4.0),
+          child: Text(
+            question,
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+        Row(
+          children: [
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                child: ElevatedButton(
+                  onPressed: disabled ? null : () => onSelected(true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: colorFor(true),
+                    foregroundColor: textColorFor(true),
+                    disabledBackgroundColor: colorFor(true),
+                    disabledForegroundColor: textColorFor(true),
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 4,
+                  ),
+                  child: const Text(
+                    'Verdadero',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                child: ElevatedButton(
+                  onPressed: disabled ? null : () => onSelected(false),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: colorFor(false),
+                    foregroundColor: textColorFor(false),
+                    disabledBackgroundColor: colorFor(false),
+                    disabledForegroundColor: textColorFor(false),
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 4,
+                  ),
+                  child: const Text(
+                    'Falso',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }
