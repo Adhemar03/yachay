@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
-import 'dart:ui' as ui;
-import 'package:yachay/core/app_colors.dart';
+// imports limpiados: eliminadas referencias no usadas
 
 class MultipleChoiceQuestion extends StatelessWidget {
   final String question;
   final List<String> options;
+  final Set<int>? hiddenOptions;
+  final bool lockOptions;
   final int? selectedIndex;
   final int? correctIndex;
   final void Function(int) onSelected;
@@ -16,6 +17,8 @@ class MultipleChoiceQuestion extends StatelessWidget {
     required this.question,
     required this.options,
     required this.onSelected,
+    this.hiddenOptions,
+    this.lockOptions = false,
     this.selectedIndex,
     this.correctIndex,
     this.showFeedback = false,
@@ -48,6 +51,10 @@ class MultipleChoiceQuestion extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         ...List.generate(options.length, (i) {
+          // ocultar opciones solicitadas por 50/50
+          if (hiddenOptions != null && hiddenOptions!.contains(i)) {
+            return const SizedBox.shrink();
+          }
           final letras = ['A', 'B', 'C', 'D'];
           final letra = (i < letras.length)
               ? letras[i]
@@ -73,7 +80,8 @@ class MultipleChoiceQuestion extends StatelessWidget {
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: ElevatedButton(
-              onPressed: (showFeedback && selectedIndex != null)
+              onPressed:
+                  (lockOptions || (showFeedback && selectedIndex != null))
                   ? null
                   : () => onSelected(i),
               style: ElevatedButton.styleFrom(
@@ -134,9 +142,11 @@ class MultipleChoiceQuestion extends StatelessWidget {
 class ImageRecognitionQuestion extends StatelessWidget {
   final String question;
   final List<String> imageUrls;
+  final Set<int>? hiddenOptions;
   final int? selectedIndex;
   final int? correctIndex;
   final bool showFeedback;
+  final bool lockOptions;
   final void Function(int) onSelected;
 
   const ImageRecognitionQuestion({
@@ -144,9 +154,11 @@ class ImageRecognitionQuestion extends StatelessWidget {
     required this.question,
     required this.imageUrls,
     required this.onSelected,
+    this.hiddenOptions,
     this.selectedIndex,
     this.correctIndex,
     this.showFeedback = false,
+    this.lockOptions = false,
   }) : super(key: key);
 
   @override
@@ -170,6 +182,9 @@ class ImageRecognitionQuestion extends StatelessWidget {
             spacing: 12,
             runSpacing: 12,
             children: List.generate(imageUrls.length, (i) {
+              if (hiddenOptions != null && hiddenOptions!.contains(i)) {
+                return const SizedBox.shrink();
+              }
               Color borderColor = Colors.transparent;
               if (showFeedback) {
                 // Always highlight correct answer when showing feedback
@@ -184,7 +199,7 @@ class ImageRecognitionQuestion extends StatelessWidget {
                   borderColor = Colors.white.withOpacity(0.12);
               }
               return GestureDetector(
-                onTap: (showFeedback && selectedIndex != null)
+                onTap: (lockOptions || (showFeedback && selectedIndex != null))
                     ? null
                     : () => onSelected(i),
                 child: Container(
@@ -217,6 +232,8 @@ class AudioRecognitionQuestion extends StatefulWidget {
   // se acepta una lista de urls o una sola; aquí usamos la primera si vienen varias
   final List<String> audioUrls;
   final List<String> options;
+  final Set<int>? hiddenOptions;
+  final bool lockOptions;
   final int? selectedIndex;
   final int? correctIndex;
   final bool showFeedback;
@@ -228,6 +245,8 @@ class AudioRecognitionQuestion extends StatefulWidget {
     required this.audioUrls,
     required this.options,
     required this.onSelected,
+    this.hiddenOptions,
+    this.lockOptions = false,
     this.selectedIndex,
     this.correctIndex,
     this.showFeedback = false,
@@ -334,6 +353,10 @@ class _AudioRecognitionQuestionState extends State<AudioRecognitionQuestion> {
         ),
         const SizedBox(height: 16),
         ...List.generate(widget.options.length, (i) {
+          if (widget.hiddenOptions != null &&
+              widget.hiddenOptions!.contains(i)) {
+            return const SizedBox.shrink();
+          }
           final letra = (i < letras.length)
               ? letras[i]
               : String.fromCharCode(65 + i);
@@ -356,7 +379,9 @@ class _AudioRecognitionQuestionState extends State<AudioRecognitionQuestion> {
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: ElevatedButton(
-              onPressed: (widget.showFeedback && widget.selectedIndex != null)
+              onPressed:
+                  (widget.lockOptions ||
+                      (widget.showFeedback && widget.selectedIndex != null))
                   ? null
                   : () => widget.onSelected(i),
               style: ElevatedButton.styleFrom(
@@ -422,6 +447,7 @@ class _AudioRecognitionQuestionState extends State<AudioRecognitionQuestion> {
 class FillInTheBlankDragQuestion extends StatefulWidget {
   final String question;
   final List<String> options;
+  final Set<int>? hiddenOptions;
   final int?
   selectedIndex; // índice seleccionado por el jugador (desde GamePage)
   final int? correctIndex; // índice correcto (desde GamePage)
@@ -429,15 +455,18 @@ class FillInTheBlankDragQuestion extends StatefulWidget {
   showFeedback; // si hay que mostrar feedback (GamePage controla esto)
   final void Function(int)
   onDropped; // callback cuando el usuario suelta una opción
+  final bool lockOptions;
 
   const FillInTheBlankDragQuestion({
     Key? key,
     required this.question,
     required this.options,
     required this.onDropped,
+    this.hiddenOptions,
     this.selectedIndex,
     this.correctIndex,
     this.showFeedback = false,
+    this.lockOptions = false,
   }) : super(key: key);
 
   @override
@@ -505,8 +534,10 @@ class _FillInTheBlankDragQuestionState
 
       return DragTarget<int>(
         onWillAccept: (data) {
-          // No aceptar si ya mostramos feedback (bloqueo)
-          return !widget.showFeedback && widget.selectedIndex == null;
+          // No aceptar si ya mostramos feedback (bloqueo) o si está bloqueado por poderes
+          return !widget.showFeedback &&
+              widget.selectedIndex == null &&
+              !widget.lockOptions;
         },
         onAccept: (data) {
           if (widget.showFeedback) return;
@@ -589,6 +620,11 @@ class _FillInTheBlankDragQuestionState
             spacing: 12,
             runSpacing: 12,
             children: List.generate(widget.options.length, (i) {
+              // ocultar si 50/50 ocultó esta opción
+              if (widget.hiddenOptions != null &&
+                  widget.hiddenOptions!.contains(i)) {
+                return const SizedBox.shrink();
+              }
               // Determinar color visual de la opción según feedback
               Color bg = Colors.white;
               Color textColor = Colors.black;
@@ -627,9 +663,11 @@ class _FillInTheBlankDragQuestionState
                 ),
               );
 
-              // Desactivar draggable si ya mostramos feedback o si ya se ha seleccionado
+              // Desactivar draggable si ya mostramos feedback o si ya se ha seleccionado o si está bloqueado por un poder
               final disabled =
-                  widget.showFeedback || widget.selectedIndex != null;
+                  widget.showFeedback ||
+                  widget.selectedIndex != null ||
+                  widget.lockOptions;
 
               return Opacity(
                 opacity:
@@ -722,6 +760,10 @@ class _FillInTheBlankDragQuestionState
           spacing: 12,
           runSpacing: 12,
           children: List.generate(widget.options.length, (i) {
+            if (widget.hiddenOptions != null &&
+                widget.hiddenOptions!.contains(i)) {
+              return const SizedBox.shrink();
+            }
             Color bg = Colors.white;
             Color textColor = Colors.black;
             if (widget.showFeedback) {
@@ -912,6 +954,65 @@ class TrueFalseQuestion extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+class AnswerOption extends StatelessWidget {
+  final String label; // Texto de la opción
+  final int index; // índice 0..n
+  final VoidCallback onTap; // callback al tocar
+  final bool isHidden; // si true, no se muestra (para 50/50)
+  final bool isDisabled; // si true, no responde (poder usado / ya contestada)
+
+  const AnswerOption({
+    super.key,
+    required this.label,
+    required this.index,
+    required this.onTap,
+    this.isHidden = false,
+    this.isDisabled = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (isHidden) return const SizedBox.shrink();
+
+    return Opacity(
+      opacity: isDisabled ? 0.5 : 1,
+      child: InkWell(
+        onTap: isDisabled ? null : onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          margin: const EdgeInsets.only(bottom: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: Colors.red,
+                child: Text(
+                  String.fromCharCode(65 + index),
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF0B2030),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
