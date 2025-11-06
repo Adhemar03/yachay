@@ -7,6 +7,8 @@ import 'question_widgets.dart';
 import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'dart:math';
+
 class GamePage extends StatefulWidget {
   final String modo;
   final String? nivel;
@@ -79,6 +81,12 @@ class _GamePageState extends State<GamePage> {
   bool? selectedBool;
   bool showFeedback = false;
   bool showingExplanation = false;
+  // Powers state
+  int fiftyCount = 3;
+  int autoAnswerCount = 2;
+  bool powerUsedThisQuestion = false;
+  final Set<int> hiddenOptions = {};
+  bool lockOptions = false;
 
   @override
   void dispose() {
@@ -138,9 +146,15 @@ class _GamePageState extends State<GamePage> {
       final res = await query.range(0, 999);
 
       // Convertir resultado a lista y filtrar solo tipos soportados
-      final preguntasListRaw = (res is List)
-          ? List<Map<String, dynamic>>.from(res)
-          : <Map<String, dynamic>>[];
+      List<Map<String, dynamic>> preguntasListRaw = [];
+      try {
+        preguntasListRaw = List<Map<String, dynamic>>.from(
+          (res as List).map((e) => Map<String, dynamic>.from(e)),
+        );
+      } catch (e) {
+        debugPrint('Warning converting preguntas list: $e');
+        preguntasListRaw = <Map<String, dynamic>>[];
+      }
       final allowed = [
         'multiple_choice',
         'image_recognition',
@@ -192,6 +206,10 @@ class _GamePageState extends State<GamePage> {
         selectedBool = null;
         showFeedback = false;
         showingExplanation = false;
+        // reset powers state for next question
+        powerUsedThisQuestion = false;
+        hiddenOptions.clear();
+        lockOptions = false;
         timeLeft = questionDuration;
       });
       _startTimer();
@@ -297,10 +315,12 @@ class _GamePageState extends State<GamePage> {
       final q = preguntas[current];
       final answerData = q['answer_data'];
       if (answerData == null) return null;
-      
+
       // Manejo del nuevo formato de respuesta
       if (answerData is Map && answerData.containsKey('correct_answer')) {
-        final correctAnswer = answerData['correct_answer'].toString().toLowerCase();
+        final correctAnswer = answerData['correct_answer']
+            .toString()
+            .toLowerCase();
         return correctAnswer == 'true' || correctAnswer == 'verdadero';
       }
     } catch (e) {
@@ -424,11 +444,15 @@ class _GamePageState extends State<GamePage> {
                                       correctIndex:
                                           _getCorrectIndexForCurrent(),
                                       showFeedback: showFeedback,
+                                      hiddenOptions: hiddenOptions,
+                                      lockOptions: lockOptions,
                                       onSelected: (i) async {
+                                        if (lockOptions) return;
                                         timer?.cancel();
                                         setState(() {
                                           selectedIndex = i;
                                           showFeedback = true;
+                                          lockOptions = true;
                                         });
                                         final correct =
                                             _getCorrectIndexForCurrent();
@@ -437,9 +461,7 @@ class _GamePageState extends State<GamePage> {
                                           const Duration(seconds: 2),
                                         );
                                         if (!mounted) return;
-                                        setState(() {
-                                          showingExplanation = true;
-                                        });
+                                        _nextQuestion();
                                       },
                                     );
                                   }
@@ -465,11 +487,15 @@ class _GamePageState extends State<GamePage> {
                                       correctIndex:
                                           _getCorrectIndexForCurrent(),
                                       showFeedback: showFeedback,
+                                      hiddenOptions: hiddenOptions,
+                                      lockOptions: lockOptions,
                                       onSelected: (i) async {
+                                        if (lockOptions) return;
                                         timer?.cancel();
                                         setState(() {
                                           selectedIndex = i;
                                           showFeedback = true;
+                                          lockOptions = true;
                                         });
                                         final correct =
                                             _getCorrectIndexForCurrent();
@@ -478,9 +504,7 @@ class _GamePageState extends State<GamePage> {
                                           const Duration(seconds: 2),
                                         );
                                         if (!mounted) return;
-                                        setState(() {
-                                          showingExplanation = true;
-                                        });
+                                        _nextQuestion();
                                       },
                                     );
                                   }
@@ -499,12 +523,15 @@ class _GamePageState extends State<GamePage> {
                                       correctIndex:
                                           _getCorrectIndexForCurrent(),
                                       showFeedback: showFeedback,
+                                      hiddenOptions: hiddenOptions,
+                                      lockOptions: lockOptions,
                                       onDropped: (i) async {
-                                        // comportamiento idéntico al de las otras preguntas: parar timer, mostrar feedback y contar aciertos
+                                        if (lockOptions) return;
                                         timer?.cancel();
                                         setState(() {
                                           selectedIndex = i;
                                           showFeedback = true;
+                                          lockOptions = true;
                                         });
                                         final correct =
                                             _getCorrectIndexForCurrent();
@@ -513,35 +540,38 @@ class _GamePageState extends State<GamePage> {
                                           const Duration(seconds: 2),
                                         );
                                         if (!mounted) return;
-                                        setState(() {
-                                          showingExplanation = true;
-                                        });
+                                        _nextQuestion();
                                       },
                                     );
                                   }
 
-                                    if (type == 'true_false') {
-                                      final correctBool = _getCorrectBoolForCurrent();
-                                      return TrueFalseQuestion(
-                                        question: q['question_text'],
-                                        selectedAnswer: selectedBool,
-                                        correctAnswer: correctBool,
-                                        showFeedback: showFeedback,
-                                        onSelected: (bool ans) async {
-                                          timer?.cancel();
-                                          setState(() {
-                                            selectedBool = ans;
-                                            showFeedback = true;
-                                          });
-                                          if (correctBool != null && ans == correctBool) correctAnswers++;
-                                          await Future.delayed(const Duration(seconds: 2));
-                                          if (!mounted) return;
-                                          setState(() {
-                                            showingExplanation = true;
-                                          });
-                                        },
-                                      );
-                                    }
+                                  if (type == 'true_false') {
+                                    final correctBool =
+                                        _getCorrectBoolForCurrent();
+                                    return TrueFalseQuestion(
+                                      question: q['question_text'],
+                                      selectedAnswer: selectedBool,
+                                      correctAnswer: correctBool,
+                                      showFeedback: showFeedback,
+                                      onSelected: (bool ans) async {
+                                        if (lockOptions) return;
+                                        timer?.cancel();
+                                        setState(() {
+                                          selectedBool = ans;
+                                          showFeedback = true;
+                                          lockOptions = true;
+                                        });
+                                        if (correctBool != null &&
+                                            ans == correctBool)
+                                          correctAnswers++;
+                                        await Future.delayed(
+                                          const Duration(seconds: 2),
+                                        );
+                                        if (!mounted) return;
+                                        _nextQuestion();
+                                      },
+                                    );
+                                  }
 
                                   // por defecto multiple choice
                                   final options =
@@ -556,11 +586,15 @@ class _GamePageState extends State<GamePage> {
                                     selectedIndex: selectedIndex,
                                     correctIndex: _getCorrectIndexForCurrent(),
                                     showFeedback: showFeedback,
+                                    hiddenOptions: hiddenOptions,
+                                    lockOptions: lockOptions,
                                     onSelected: (i) async {
+                                      if (lockOptions) return;
                                       timer?.cancel();
                                       setState(() {
                                         selectedIndex = i;
                                         showFeedback = true;
+                                        lockOptions = true;
                                       });
                                       final correct =
                                           _getCorrectIndexForCurrent();
@@ -577,6 +611,34 @@ class _GamePageState extends State<GamePage> {
                               const SizedBox(height: 24),
                               Text(
                                 'Pregunta ${current + 1} de ${preguntas.length}',
+                              ),
+                              const SizedBox(height: 12),
+                              // ROW DE PODERES
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceEvenly,
+                                children: [
+                                  _PowerButton(
+                                    icon: Icons.percent,
+                                    label: '50/50',
+                                    counter: fiftyCount,
+                                    disabled:
+                                        powerUsedThisQuestion ||
+                                        fiftyCount <= 0 ||
+                                        lockOptions,
+                                    onTap: _useFifty,
+                                  ),
+                                  _PowerButton(
+                                    icon: Icons.flash_on,
+                                    label: 'Auto',
+                                    counter: autoAnswerCount,
+                                    disabled:
+                                        powerUsedThisQuestion ||
+                                        autoAnswerCount <= 0 ||
+                                        lockOptions,
+                                    onTap: _useAutoAnswer,
+                                  ),
+                                ],
                               ),
                               const SizedBox(
                                 height: 12,
@@ -625,7 +687,9 @@ class _GamePageState extends State<GamePage> {
         final curType = (preguntas.isNotEmpty && current < preguntas.length)
             ? (preguntas[current]['question_type'] as String? ?? '')
             : '';
-        final noAnswer = curType == 'true_false' ? (selectedBool == null) : (selectedIndex == null);
+        final noAnswer = curType == 'true_false'
+            ? (selectedBool == null)
+            : (selectedIndex == null);
         if (noAnswer) {
           setState(() {
             showFeedback = true;
@@ -639,7 +703,300 @@ class _GamePageState extends State<GamePage> {
       }
     });
   }
+
+  // ======= Poderes ========
+  void _useFifty() {
+    if (powerUsedThisQuestion || fiftyCount <= 0) return;
+    final q = preguntas[current];
+    final answerData = q['answer_data'];
+    if (answerData is Map && answerData['options'] is List) {
+      final opts = answerData['options'] as List;
+      final correct = _getCorrectIndexForCurrent();
+      final incorrects = <int>[];
+      for (int i = 0; i < opts.length; i++) {
+        if (i != correct) incorrects.add(i);
+      }
+      incorrects.shuffle();
+      final toHide = incorrects.take(
+        incorrects.length >= 2 ? 2 : incorrects.length,
+      );
+      setState(() {
+        hiddenOptions.addAll(toHide);
+        fiftyCount -= 1;
+        powerUsedThisQuestion = true;
+      });
+    }
+  }
+
+  void _useAutoAnswer() {
+    if (powerUsedThisQuestion || autoAnswerCount <= 0) return;
+    final q = preguntas[current];
+    final type = q['question_type'] as String? ?? '';
+    setState(() {
+      autoAnswerCount -= 1;
+      powerUsedThisQuestion = true;
+      lockOptions = true;
+    });
+    if (type == 'true_false') {
+      final correct = _getCorrectBoolForCurrent();
+      if (correct != null) {
+        setState(() {
+          selectedBool = correct;
+          showFeedback = true;
+          if (correct) correctAnswers++;
+        });
+      }
+    } else {
+      final correct = _getCorrectIndexForCurrent();
+      if (correct != null) {
+        setState(() {
+          selectedIndex = correct;
+          showFeedback = true;
+          correctAnswers++;
+        });
+      }
+    }
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (!mounted) return;
+      _nextQuestion();
+    });
+  }
   // ...existing code...
 
   // ...existing code...
+}
+
+// Modelo mínimo del item de pregunta esperado por esta página
+class GameQuestion {
+  final String text;
+  final List<String> options; // 4 opciones
+  final int correctIndex; // índice 0..3 correcto
+
+  GameQuestion({
+    required this.text,
+    required this.options,
+    required this.correctIndex,
+  });
+}
+
+class GamePageWithPowers extends StatefulWidget {
+  const GamePageWithPowers({super.key, required this.questions});
+  final List<GameQuestion> questions;
+
+  @override
+  State<GamePageWithPowers> createState() => _GamePageWithPowersState();
+}
+
+class _GamePageWithPowersState extends State<GamePageWithPowers> {
+  int qIndex = 0;
+  int score = 0;
+
+  // --- Poderes (puedes cargar estos contadores desde BD/SharedPreferences) ---
+  int fiftyCount = 3; // cantidad disponible de 50/50
+  int autoAnswerCount = 2; // cantidad disponible de Respuesta Automática
+
+  // Control por pregunta
+  bool powerUsedThisQuestion = false; // Solo 1 poder por pregunta
+  final Set<int> hiddenOptions = {}; // índices ocultos por 50/50
+  bool lockOptions = false; // bloquea taps luego de responder
+
+  GameQuestion get current => widget.questions[qIndex];
+
+  // =============== LÓGICA PRINCIPAL ===============
+
+  void _onTapOption(int index) {
+    if (lockOptions) return;
+
+    final isCorrect = index == current.correctIndex;
+    setState(() {
+      lockOptions = true;
+      if (isCorrect) score += 100; // suma que uses
+    });
+
+    // Simula delay y avanza
+    Future.delayed(const Duration(milliseconds: 600), _goNext);
+  }
+
+  void _goNext() {
+    if (qIndex < widget.questions.length - 1) {
+      setState(() {
+        qIndex++;
+        // reset por nueva pregunta
+        powerUsedThisQuestion = false;
+        hiddenOptions.clear();
+        lockOptions = false;
+      });
+    } else {
+      // fin del juego: navega o muestra dialog
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('¡Fin!'),
+          content: Text('Puntaje: $score'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  // =============== PODER 50/50 ===============
+  void _useFifty() {
+    if (powerUsedThisQuestion || fiftyCount <= 0) return;
+
+    final incorrects = <int>[];
+    for (int i = 0; i < current.options.length; i++) {
+      if (i != current.correctIndex) incorrects.add(i);
+    }
+
+    // elige 2 incorrectas aleatorias para ocultar
+    incorrects.shuffle(Random());
+    final toHide = incorrects.take(2);
+
+    setState(() {
+      hiddenOptions.addAll(toHide);
+      fiftyCount -= 1;
+      powerUsedThisQuestion = true; // ya no se puede usar otro poder
+    });
+  }
+
+  // =============== PODER RESPUESTA AUTOMÁTICA ===============
+  void _useAutoAnswer() {
+    if (powerUsedThisQuestion || autoAnswerCount <= 0) return;
+
+    setState(() {
+      autoAnswerCount -= 1;
+      powerUsedThisQuestion = true;
+      lockOptions = true;
+      score += 100; // lo marcas como correcta
+    });
+
+    // Avanza a la siguiente
+    Future.delayed(const Duration(milliseconds: 400), _goNext);
+  }
+
+  // =============== UI ===============
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0x0F1F2A).withOpacity(1),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // HEADER SIMPLE
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('YACHAY', style: TextStyle(color: Colors.white)),
+                  Text(
+                    'Puntos: $score',
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+
+              // Pregunta
+              Text(
+                current.text,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 18,
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Opciones
+              for (int i = 0; i < current.options.length; i++)
+                AnswerOption(
+                  label: current.options[i],
+                  index: i,
+                  isHidden: hiddenOptions.contains(i),
+                  isDisabled: lockOptions,
+                  onTap: () => _onTapOption(i),
+                ),
+
+              const Spacer(),
+
+              // ====== PODERES EN LA PARTE INFERIOR ======
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _PowerButton(
+                    icon: Icons.percent, // usa tu ícono 50/50
+                    label: '50/50',
+                    counter: fiftyCount,
+                    disabled:
+                        powerUsedThisQuestion || fiftyCount <= 0 || lockOptions,
+                    onTap: _useFifty,
+                  ),
+                  _PowerButton(
+                    icon: Icons.flash_on, // usa tu ícono de “auto”
+                    label: 'Auto',
+                    counter: autoAnswerCount,
+                    disabled:
+                        powerUsedThisQuestion ||
+                        autoAnswerCount <= 0 ||
+                        lockOptions,
+                    onTap: _useAutoAnswer,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Botón redondo con contador
+class _PowerButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final int counter;
+  final bool disabled;
+  final VoidCallback onTap;
+
+  const _PowerButton({
+    required this.icon,
+    required this.label,
+    required this.counter,
+    required this.disabled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        InkWell(
+          onTap: disabled ? null : onTap,
+          borderRadius: BorderRadius.circular(30),
+          child: Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: disabled
+                  ? const Color(0xFF1B3A4B)
+                  : const Color(0xFF00D1C1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: Colors.white),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text('$label  $counter', style: const TextStyle(color: Colors.white)),
+      ],
+    );
+  }
 }

@@ -54,11 +54,13 @@ class StatsScreen extends StatelessWidget {
         : 0;
 
     // 3. Obtener el total de partidas 'correctas' (final_score >= 80)
+    // Contar partidas con puntaje suficientemente alto como "correctas".
+    // Usamos >= 80 para considerar partidas con al menos 80 puntos como acertadas.
     final correctAnswersResponse = await supabase
         .from('gamesessions')
         .select('final_score')
         .eq('user_id', userId)
-        .eq('final_score', 100); // ❌ CAMBIAR .gte(80) por .eq(100)
+        .gte('final_score', 80);
 
     // ✅ CORRECCIÓN CLAVE: Usamos _extractData para obtener la lista real de resultados
     final correctAnswersData = _extractData(correctAnswersResponse);
