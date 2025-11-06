@@ -8,6 +8,8 @@ import 'screens/quick_mode_screen.dart';
 import 'screens/daily_challenge_screen.dart';
 import 'screens/perfil_screen.dart';
 
+import 'package:flutter/services.dart';
+
 import 'screens/leaderboard_screen.dart'; // Asegúrate de importar LeaderboardScreen
 import 'screens/stats_screen.dart'; // Asegúrate de importar correctamente la pantalla de estadísticas
 import 'game_page.dart'; // Asegúrate de importar GamePage
@@ -31,6 +33,12 @@ class _GameModeScreenState extends State<GameModeScreen> {
   void initState() {
     super.initState();
     _loadUserData();
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle(
+        statusBarColor: Color(0xFF162936), // Transparente
+        statusBarIconBrightness: Brightness.light, // Íconos blancos
+      ),
+    );
   }
 
   Future<void> _loadUserData() async {
@@ -141,79 +149,82 @@ class _GameModeScreenState extends State<GameModeScreen> {
   }
 
   Widget _buildHeader() {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF162936),
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(20),
-          bottomRight: Radius.circular(20),
+    return SafeArea(
+      bottom: false,
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF162936),
+          borderRadius: const BorderRadius.only(
+            bottomLeft: Radius.circular(20),
+            bottomRight: Radius.circular(20),
+          ),
         ),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  const Icon(
-                    Icons.attach_money,
-                    color: Colors.yellow,
-                    size: 28,
-                  ),
-                  const SizedBox(width: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 30,
-                      vertical: 4,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.attach_money,
+                      color: Colors.yellow,
+                      size: 28,
                     ),
-                    decoration: BoxDecoration(
-                      color: Colors.teal,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      loadingPoints ? '...' : (userPoints?.toString() ?? '0'),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
+                    const SizedBox(width: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 30,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.teal,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        loadingPoints ? '...' : (userPoints?.toString() ?? '0'),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              Row(
-                children: [
-                  const Icon(Icons.favorite, color: Colors.red, size: 26),
-                  const SizedBox(width: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.teal,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Text(
-                      "x5",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
+                  ],
+                ),
+                Row(
+                  children: [
+                    const Icon(Icons.favorite, color: Colors.red, size: 26),
+                    const SizedBox(width: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.teal,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Text(
+                        "x5",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          Image.asset(
-            "assets/images/logopeque.png",
-            height: 40,
-            fit: BoxFit.contain,
-          ),
-        ],
+                  ],
+                ),
+              ],
+            ),
+            Image.asset(
+              "assets/images/logopeque.png",
+              height: 40,
+              fit: BoxFit.contain,
+            ),
+          ],
+        ),
       ),
     );
   }
