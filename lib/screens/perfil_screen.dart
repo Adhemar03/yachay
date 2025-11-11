@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'iniciar_secion.dart';
@@ -14,8 +16,11 @@ class _PerfilScreenState extends State<PerfilScreen> {
   String? username;
   String? email;
   int? userPoints;
+  String? avatarUrl;
   bool loading = true;
   bool _loadingLogout = false;
+
+  final picker = ImagePicker();
 
   @override
   void initState() {
@@ -30,7 +35,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
     if (id != null) {
       final userRow = await Supabase.instance.client
           .from('users')
-          .select('username, email, in_game_points')
+          .select('username, email, in_game_points, avatar_url')
           .eq('user_id', id)
           .maybeSingle();
 
@@ -39,6 +44,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
           username = userRow['username'] as String?;
           email = userRow['email'] as String?;
           userPoints = userRow['in_game_points'] as int?;
+          avatarUrl = userRow['avatar_url'] ?? 'assets/images/iconoPerfil.png';
           loading = false;
         });
       } else {
@@ -49,6 +55,126 @@ class _PerfilScreenState extends State<PerfilScreen> {
     }
   }
 
+  //  Editar perfil (nombre y foto)
+  Future<void> _editarPerfil() async {
+    final prefs = await SharedPreferences.getInstance();
+    final id = prefs.getInt('user_id');
+    if (id == null) return;
+
+    TextEditingController nameController = TextEditingController(
+      text: username ?? '',
+    );
+
+    // Lista de avatares predefinidos
+    final List<String> avatarOptions = [
+      'assets/images/iconoPerfil.png',
+      'assets/avatars/avatar1.png',
+      'assets/avatars/avatar2.png',
+      'assets/avatars/avatar3.png',
+      'assets/avatars/avatar4.png',
+      'assets/avatars/avatar5.png',
+      'assets/avatars/avatar6.png',
+      'assets/avatars/avatar7.png',
+      'assets/avatars/avatar8.png',
+      'assets/avatars/avatar9.png',
+      'assets/avatars/avatar10.png',
+    ];
+
+    String selectedAvatar = avatarUrl ?? avatarOptions[0];
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: Colors.white,
+              title: const Text("Editar perfil", textAlign: TextAlign.center),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Cuadrícula de avatares con tamaño controlado
+                      SizedBox(
+                        height: 300,
+                        child: GridView.count(
+                          crossAxisCount: 3,
+                          shrinkWrap: true,
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          children: avatarOptions.map((avatar) {
+                            return GestureDetector(
+                              onTap: () {
+                                setDialogState(() {
+                                  selectedAvatar = avatar;
+                                });
+                              },
+                              child: Container(
+                                margin: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color: selectedAvatar == avatar
+                                        ? Colors.blue
+                                        : Colors.transparent,
+                                    width: 2,
+                                  ),
+                                ),
+                                child: Image.asset(
+                                  avatar,
+                                  width: 50,
+                                  height: 50,
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: nameController,
+                        decoration: const InputDecoration(
+                          labelText: 'Nombre de usuario',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Cancelar"),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    await Supabase.instance.client
+                        .from('users')
+                        .update({
+                          'username': nameController.text,
+                          'avatar_url': selectedAvatar,
+                        })
+                        .eq('user_id', id);
+
+                    setState(() {
+                      username = nameController.text;
+                      avatarUrl = selectedAvatar;
+                    });
+
+                    if (context.mounted) Navigator.pop(context);
+                  },
+                  child: const Text("Guardar"),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  //Modal de confirmación para cerrar sesión
   Future<void> _confirmLogout() async {
     final bool? confirmar = await showDialog(
       context: context,
@@ -136,18 +262,109 @@ class _PerfilScreenState extends State<PerfilScreen> {
     }
   }
 
+  // Tarjeta de información del usuario
+  Widget _buildUserCard() {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(vertical: 20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF7A9DB0),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.4),
+            offset: const Offset(0, 3),
+            blurRadius: 6,
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Imagen de perfil
+                Container(
+                  width: 70,
+                  height: 70,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    image: DecorationImage(
+                      fit: BoxFit.cover,
+                      image: avatarUrl != null
+                          ? (avatarUrl!.startsWith('assets')
+                                ? AssetImage(avatarUrl!) as ImageProvider
+                                : NetworkImage(avatarUrl!))
+                          : const AssetImage('assets/images/iconoPerfil.png'),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // Datos del usuario
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildInfoRow(Icons.person_outline, username ?? '-'),
+                      const SizedBox(height: 6),
+                      _buildInfoRow(Icons.email_outlined, email ?? '-'),
+                      const SizedBox(height: 6),
+                      _buildInfoRow(Icons.credit_card, '1293782'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Botón Editar perfil
+          Container(
+            width: double.infinity,
+            decoration: const BoxDecoration(
+              color: Color(0xFFFF7A00),
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(16),
+                bottomRight: Radius.circular(16),
+              ),
+            ),
+            child: TextButton(
+              onPressed: _editarPerfil,
+              child: const Text(
+                "Editar perfil",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.white, size: 20),
+          const SizedBox(width: 8),
+          Text(text, style: const TextStyle(fontSize: 16, color: Colors.white)),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.black87,
-        title: const Text(
-          "Perfil de usuario",
-          style: TextStyle(color: Colors.white),
-        ),
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
       body: loading
           ? const Center(child: CircularProgressIndicator())
           : Padding(
@@ -156,39 +373,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   // Contenido superior
-                  Column(
-                    children: [
-                      const CircleAvatar(
-                        radius: 60,
-                        backgroundImage: AssetImage("assets/logo.png"),
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        username ?? '-',
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        email ?? '-',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          color: Colors.black54,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        "Puntos: ${userPoints ?? 0}",
-                        style: const TextStyle(
-                          fontSize: 16,
-                          color: Colors.black54,
-                        ),
-                      ),
-                    ],
-                  ),
+                  Column(children: [_buildUserCard()]),
 
                   // Botón de cerrar sesión
                   SizedBox(
