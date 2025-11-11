@@ -41,11 +41,21 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   String _selectedDateFilter = 'general';
 
   /// <<< FIN CAMBIO AÑADIDO
+  /// >>> CAMBIO NUEVO: CONTROLADORES PARA AGREGAR AMIGOS
+  late TextEditingController _searchController;
+  bool _isSearchByEmail = false;
 
   @override
   void initState() {
     super.initState();
     _loadUserId();
+    _searchController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   // Carga el ID del usuario actual desde SharedPreferences
@@ -249,6 +259,125 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   }
 
   /// <<< FIN CAMBIO AÑADIDO
+  /// >>> CAMBIO NUEVO: FUNCIÓN PARA BUSCAR USUARIO POR ID O EMAIL
+  Future<Map<String, dynamic>?> _searchUser(String searchTerm) async {
+    try {
+      late List<dynamic> response;
+
+      if (_isSearchByEmail) {
+        // Buscar por email
+        print('Buscando por email: $searchTerm en tabla users');
+        response = await supabase
+            .from('users')
+            .select('user_id, username, email')
+            .eq('email', searchTerm)
+            .limit(1);
+        print('Respuesta de búsqueda por email: $response');
+      } else {
+        // Buscar por ID
+        try {
+          int parsedId = int.parse(searchTerm);
+          print('Buscando por ID: $parsedId en tabla users');
+          response = await supabase
+              .from('users')
+              .select('user_id, username, email')
+              .eq('user_id', parsedId)
+              .limit(1);
+          print('Respuesta de búsqueda por ID: $response');
+        } catch (parseError) {
+          print('Error al convertir a ID: $parseError');
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('El ID debe ser un número válido')),
+          );
+          return null;
+        }
+      }
+
+      if (response.isNotEmpty) {
+        final user = response[0] as Map<String, dynamic>;
+        print('Usuario encontrado: $user');
+        print('Campos disponibles: ${user.keys}');
+        return user;
+      }
+      print('No se encontró usuario con los parámetros: $searchTerm');
+      return null;
+    } catch (e) {
+      print("Error al buscar usuario: $e");
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      return null;
+    }
+  }
+
+  /// >>> CAMBIO NUEVO: FUNCIÓN PARA AGREGAR AMIGO
+  Future<bool> _addFriend(int friendId) async {
+    try {
+      // Obtener el usuario autenticado de Supabase
+      final user = supabase.auth.currentUser;
+      print('Usuario autenticado: ${user?.id}');
+      print('currentUserId cargado: $currentUserId');
+      print('friendId a agregar: $friendId');
+
+      if (currentUserId == null || friendId == currentUserId) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No puedes agregarte a ti mismo')),
+        );
+        return false;
+      }
+
+      // Verificar si ya son amigos
+      print('Verificando si ya son amigos...');
+      final existingFriendship = await supabase
+          .from('amistad')
+          .select()
+          .or(
+            'and(user_id_1.eq.$currentUserId,user_id_2.eq.$friendId),and(user_id_1.eq.$friendId,user_id_2.eq.$currentUserId)',
+          );
+
+      print('Resultado de verificación: $existingFriendship');
+
+      if (existingFriendship.isNotEmpty) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Ya son amigos')));
+        return false;
+      }
+
+      // Agregar amigo - Intentar con INSERT
+      print('Intentando agregar amigo: $currentUserId -> $friendId');
+      try {
+        final insertResult = await supabase.from('amistad').insert({
+          'user_id_1': currentUserId,
+          'user_id_2': friendId,
+        }).select();
+
+        print('Resultado de inserción: $insertResult');
+      } catch (insertError) {
+        print('Error en insert: $insertError');
+        // Si falla el insert normal, intentar con RPC si existe
+        print('Intentando alternativa con RPC...');
+        rethrow;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('¡Amigo agregado exitosamente!')),
+      );
+
+      // Limpiar campo de búsqueda
+      _searchController.clear();
+      setState(() {});
+
+      return true;
+    } catch (e) {
+      print("Error completo al agregar amigo: $e");
+      print("Tipo de error: ${e.runtimeType}");
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      return false;
+    }
+  }
 
   // =========================================================
   // WIDGETS DE CONSTRUCCIÓN DE LA UI
@@ -374,7 +503,259 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           ),
 
           /// <<< FIN CAMBIO AÑADIDO: FILA DE BOTONES
+          /// >>> CAMBIO NUEVO: MOSTRAR ID DE USUARIO Y APARTADO PARA AGREGAR AMIGOS (SOLO EN VISTA 'AMIGOS')
+          if (_selectedTab == 'amigos')
+            Column(
+              children: [
+                // Mostrar ID del usuario actual
+                Padding(
+                  padding: const EdgeInsets.only(
+                    top: 10,
+                    left: 25,
+                    right: 25,
+                    bottom: 0,
+                  ),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: PaletadeColores.fondo,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: PaletadeColores.secundario,
+                        width: 2,
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        const Text(
+                          'Tu ID de Usuario',
+                          style: TextStyle(color: Colors.white70, fontSize: 14),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          currentUserId.toString(),
+                          style: const TextStyle(
+                            color: Color(0xFF00FFEA),
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                // Apartado para agregar amigos
+                Padding(
+                  padding: const EdgeInsets.only(
+                    top: 10,
+                    left: 25,
+                    right: 25,
+                    bottom: 0,
+                  ),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: PaletadeColores.fondo,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Agregar Amigo',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        // Toggle para cambiar entre búsqueda por ID o Email
+                        Row(
+                          children: [
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    _isSearchByEmail = false;
+                                    _searchController.clear();
+                                  });
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 6,
+                                    horizontal: 10,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: !_isSearchByEmail
+                                        ? PaletadeColores.secundario
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: PaletadeColores.secundario,
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    'Por ID',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    _isSearchByEmail = true;
+                                    _searchController.clear();
+                                  });
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 6,
+                                    horizontal: 10,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: _isSearchByEmail
+                                        ? PaletadeColores.secundario
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: PaletadeColores.secundario,
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    'Por Email',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        // Campo de búsqueda
+                        TextField(
+                          controller: _searchController,
+                          style: const TextStyle(color: Colors.white),
+                          decoration: InputDecoration(
+                            hintText: _isSearchByEmail
+                                ? 'Ingresa el email'
+                                : 'Ingresa el ID',
+                            hintStyle: const TextStyle(color: Colors.white54),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(
+                                color: Color(0xFF00FFEA),
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(
+                                color: Color(0xFF00FFEA),
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(
+                                color: Color(0xFF00FFEA),
+                                width: 2,
+                              ),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        // Botón de búsqueda
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: () async {
+                              if (_searchController.text.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Por favor ingresa un ID o email',
+                                    ),
+                                  ),
+                                );
+                                return;
+                              }
 
+                              final user = await _searchUser(
+                                _searchController.text,
+                              );
+                              if (user != null) {
+                                // Manejar diferentes nombres de columnas
+                                final userId =
+                                    user['user_id'] as int? ??
+                                    user['id_usuario'] as int?;
+                                final username =
+                                    user['username'] as String? ??
+                                    user['nombre'] as String? ??
+                                    'Usuario Desconocido';
+                                final email =
+                                    user['email'] as String? ?? 'Sin email';
+
+                                if (userId != null) {
+                                  _showAddFriendDialog(userId, username, email);
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Error: No se encontró ID de usuario',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Usuario no encontrado'),
+                                  ),
+                                );
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: PaletadeColores.secundario,
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: const Text(
+                              'Buscar',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+          /// <<< FIN CAMBIO NUEVO
           /// >>> CAMBIO AÑADIDO: FILA DE BOTONES DE FILTRO DE FECHA (SOLO VISIBLE EN 'GENERAL')
           if (_selectedTab == 'general')
             Padding(
@@ -620,7 +1001,94 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   }
 
   // ✅ Se eliminó _buildTabToggle()
+  /// >>> CAMBIO NUEVO: MOSTRAR DIÁLOGO PARA CONFIRMAR AGREGACIÓN DE AMIGO
+  void _showAddFriendDialog(int friendId, String username, String email) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: PaletadeColores.fondo,
+          title: const Text(
+            'Agregar Amigo',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Nombre de usuario:',
+                style: TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+              Text(
+                username,
+                style: const TextStyle(
+                  color: Color(0xFF00FFEA),
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Email:',
+                style: TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+              Text(
+                email,
+                style: const TextStyle(
+                  color: Color(0xFF00FFEA),
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'ID de usuario:',
+                style: TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+              Text(
+                friendId.toString(),
+                style: const TextStyle(
+                  color: Color(0xFF00FFEA),
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text(
+                'Cancelar',
+                style: TextStyle(color: Colors.white70),
+              ),
+            ),
+            TextButton(
+              onPressed: () async {
+                final success = await _addFriend(friendId);
+                if (success && mounted) {
+                  Navigator.of(context).pop();
+                  setState(() {});
+                }
+              },
+              child: const Text(
+                'Agregar',
+                style: TextStyle(
+                  color: Color(0xFF00FFEA),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
+  /// <<< FIN CAMBIO NUEVO
   Widget _buildLeaderboardTile(LeaderboardUser user, int rank) {
     final bool isTopThree = rank == 3;
     //Agregarciones
