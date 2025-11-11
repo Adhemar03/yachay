@@ -35,6 +35,8 @@ dependencies:
   shared_preferences: ^2.1.0
   google_sign_in: ^7.2.0
   audioplayers: ^6.5.1
+  file_picker: ^8.1.2
+  image_picker: ^1.1.1
 
 dev_dependencies:
   flutter_test:
@@ -60,6 +62,19 @@ flutter:
   assets:
     - assets/LogoYachay.png
     - assets/images/
+    - assets/images/iconoPerfil.png
+    - assets/avatars/avatar1.png
+    - assets/avatars/avatar2.png
+    - assets/avatars/avatar3.png
+    - assets/avatars/avatar4.png
+    - assets/avatars/avatar5.png
+    - assets/avatars/avatar6.png
+    - assets/avatars/avatar7.png
+    - assets/avatars/avatar8.png
+    - assets/avatars/avatar9.png
+    - assets/avatars/avatar10.png
+  
+
 
   # To add assets to your application, add an assets section, like this:
   # assets:
