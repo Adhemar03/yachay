@@ -53,7 +53,9 @@ class _GamePageState extends State<GamePage> {
         debugPrint('Error updating user points: $e');
       }
     }
-    debugPrint('_showScoreAndUpdateUser -> userId=$userId pointsToAdd=$pointsToAdd');
+    debugPrint(
+      '_showScoreAndUpdateUser -> userId=$userId pointsToAdd=$pointsToAdd',
+    );
     return pointsToAdd;
   }
 
@@ -62,17 +64,23 @@ class _GamePageState extends State<GamePage> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getInt('user_id');
-  if (userId == null) return false;
-      debugPrint('_recordGameSession -> calling rpc_insert_gamesession for user=$userId finalScore=$finalScore');
+      if (userId == null) return false;
+      debugPrint(
+        '_recordGameSession -> calling rpc_insert_gamesession for user=$userId finalScore=$finalScore',
+      );
       // Call RPC that inserts the gamesession with SECURITY DEFINER
-      final res = await Supabase.instance.client.rpc('rpc_insert_gamesession', params: {
-        'p_user_id': userId,
-        'p_final_score': finalScore,
-      }).maybeSingle();
+      final res = await Supabase.instance.client
+          .rpc(
+            'rpc_insert_gamesession',
+            params: {'p_user_id': userId, 'p_final_score': finalScore},
+          )
+          .maybeSingle();
       debugPrint('_recordGameSession -> rpc result for user=$userId res=$res');
       if (res != null && res is Map) {
         try {
-          AchievementsService.instance.addLocalGameSession(Map<String, dynamic>.from(res));
+          AchievementsService.instance.addLocalGameSession(
+            Map<String, dynamic>.from(res),
+          );
         } catch (_) {}
         return true;
       }
@@ -110,6 +118,8 @@ class _GamePageState extends State<GamePage> {
   final Set<int> hiddenOptions = {};
   bool lockOptions = false;
 
+  int? hearts;
+
   @override
   void dispose() {
     timer?.cancel();
@@ -124,6 +134,15 @@ class _GamePageState extends State<GamePage> {
   void initState() {
     super.initState();
     _loadQuestions();
+    _loadHearts();
+  }
+
+  Future<void> _loadHearts() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      hearts =
+          prefs.getInt('hearts') ?? 5; // Inicializa corazones a 5 si no existen
+    });
   }
 
   Future<void> _handleCorrectAnswer() async {
@@ -280,20 +299,23 @@ class _GamePageState extends State<GamePage> {
       // Actualizar puntos, grabar sesión y comprobar logros (esperamos para mostrar cualquier logro desbloqueado)
       try {
         final sessionPoints = await _showScoreAndUpdateUser();
-  final sessionRecorded = await _recordGameSession(sessionPoints);
+        final sessionRecorded = await _recordGameSession(sessionPoints);
         final prefs = await SharedPreferences.getInstance();
         final userId = prefs.getInt('user_id');
         final newly = await AchievementsService.instance.checkProgress(
           userId: userId,
           sessionEnded: true,
-          categoriesPlayedThisSession: categoriesPlayedThisSession.isEmpty ? null : categoriesPlayedThisSession,
+          categoriesPlayedThisSession: categoriesPlayedThisSession.isEmpty
+              ? null
+              : categoriesPlayedThisSession,
           sessionPoints: sessionPoints,
           sessionRecorded: sessionRecorded,
         );
         // Comprobar y otorgar desde la app el logro Líder del Ranking (Top10)
         try {
           if (userId != null) {
-            final leader = await AchievementsService.instance.checkAndAwardLiderRanking(userId: userId);
+            final leader = await AchievementsService.instance
+                .checkAndAwardLiderRanking(userId: userId);
             if (leader != null) newly.add(leader);
           }
         } catch (e) {
@@ -320,7 +342,10 @@ class _GamePageState extends State<GamePage> {
                     itemBuilder: (context, i) {
                       final a = newly[i];
                       return ListTile(
-                        leading: const Icon(Icons.emoji_events, color: Colors.amber),
+                        leading: const Icon(
+                          Icons.emoji_events,
+                          color: Colors.amber,
+                        ),
                         title: Text(a.title),
                         subtitle: Text(a.description),
                       );
@@ -328,7 +353,10 @@ class _GamePageState extends State<GamePage> {
                   ),
                 ),
                 actions: [
-                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK')),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('OK'),
+                  ),
                 ],
               ),
             );
@@ -436,6 +464,45 @@ class _GamePageState extends State<GamePage> {
     return null;
   }
 
+  void _deductHeart() {
+    // Nueva función para descontar corazones
+    if (hearts != null && hearts! > 0) {
+      setState(() {
+        hearts = hearts! - 1;
+      });
+      SharedPreferences.getInstance().then((prefs) {
+        prefs.setInt('hearts', hearts!);
+      });
+      if (hearts == 0) {
+        _endGame();
+      }
+    }
+  }
+
+  // Nueva función para terminar el juego por falta de corazones
+  void _endGame() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("¡Juego terminado!"),
+        content: const Text("Se te acabaron los corazones."),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const GameModeScreen()),
+                (route) => false,
+              );
+            },
+            child: const Text("Aceptar"),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -517,7 +584,7 @@ class _GamePageState extends State<GamePage> {
                                   Positioned.fill(
                                     child: Center(
                                       child: Text(
-                                        'Tiempo: $timeLeft s',
+                                        'Tiempo: $timeLeft s  |  Corazones ❤️: ${hearts ?? 5}', //Muestra corazones junto al tiempo
                                         style: const TextStyle(
                                           color: Colors.white,
                                           fontWeight: FontWeight.bold,
@@ -563,6 +630,11 @@ class _GamePageState extends State<GamePage> {
                                         });
                                         final correct =
                                             _getCorrectIndexForCurrent();
+
+                                        if (i != correct)
+                                          _deductHeart(); //Descuento por respuesta incorrecta
+                                        //if (i == correct) correctAnswers++;
+
                                         if (i == correct) {
                                           await _handleCorrectAnswer();
                                         } else {
@@ -611,6 +683,10 @@ class _GamePageState extends State<GamePage> {
                                         });
                                         final correct =
                                             _getCorrectIndexForCurrent();
+                                        if (i != correct)
+                                          _deductHeart(); //Descuento por respuesta incorrecta
+                                        //if (i == correct) correctAnswers++;
+
                                         if (i == correct) {
                                           await _handleCorrectAnswer();
                                         } else {
@@ -652,6 +728,10 @@ class _GamePageState extends State<GamePage> {
                                         });
                                         final correct =
                                             _getCorrectIndexForCurrent();
+                                        if (i != correct)
+                                          _deductHeart(); //Descuento por respuesta incorrecta
+                                        //if (i == correct) correctAnswers++;
+
                                         if (i == correct) {
                                           await _handleCorrectAnswer();
                                         } else {
@@ -683,7 +763,15 @@ class _GamePageState extends State<GamePage> {
                                           showFeedback = true;
                                           lockOptions = true;
                                         });
-                                        if (correctBool != null && ans == correctBool) {
+                                        if (correctBool != null &&
+                                            ans != correctBool)
+                                          _deductHeart(); // Descuento por respuesta incorrecta
+                                        //if (correctBool != null &&
+                                        //  ans == correctBool)
+                                        //correctAnswers++;
+
+                                        if (correctBool != null &&
+                                            ans == correctBool) {
                                           await _handleCorrectAnswer();
                                         } else {
                                           inGameCorrectStreak = 0;
@@ -723,6 +811,9 @@ class _GamePageState extends State<GamePage> {
                                       });
                                       final correct =
                                           _getCorrectIndexForCurrent();
+                                      if (i != correct)
+                                        _deductHeart(); // Descuento por respuesta incorrecta
+                                      //if (i == correct) correctAnswers++;
                                       if (i == correct) {
                                         await _handleCorrectAnswer();
                                       } else {
@@ -760,12 +851,20 @@ class _GamePageState extends State<GamePage> {
                                       _useFifty();
                                       // Notificar uso de poder para logros (y guardar en sesión si hay nuevo logro)
                                       try {
-                                        final prefs = await SharedPreferences.getInstance();
+                                        final prefs =
+                                            await SharedPreferences.getInstance();
                                         final userId = prefs.getInt('user_id');
-                                        final a = await AchievementsService.instance.notifyUsedFifty(userId: userId);
-                                        if (a != null) setState(() => sessionUnlocked.add(a));
+                                        final a = await AchievementsService
+                                            .instance
+                                            .notifyUsedFifty(userId: userId);
+                                        if (a != null)
+                                          setState(
+                                            () => sessionUnlocked.add(a),
+                                          );
                                       } catch (e) {
-                                        debugPrint('Error notifying used fifty: $e');
+                                        debugPrint(
+                                          'Error notifying used fifty: $e',
+                                        );
                                       }
                                     },
                                   ),
@@ -780,12 +879,20 @@ class _GamePageState extends State<GamePage> {
                                     onTap: () async {
                                       _useAutoAnswer();
                                       try {
-                                        final prefs = await SharedPreferences.getInstance();
+                                        final prefs =
+                                            await SharedPreferences.getInstance();
                                         final userId = prefs.getInt('user_id');
-                                        final a = await AchievementsService.instance.notifyUsedAuto(userId: userId);
-                                        if (a != null) setState(() => sessionUnlocked.add(a));
+                                        final a = await AchievementsService
+                                            .instance
+                                            .notifyUsedAuto(userId: userId);
+                                        if (a != null)
+                                          setState(
+                                            () => sessionUnlocked.add(a),
+                                          );
                                       } catch (e) {
-                                        debugPrint('Error notifying used auto: $e');
+                                        debugPrint(
+                                          'Error notifying used auto: $e',
+                                        );
                                       }
                                     },
                                   ),
@@ -843,6 +950,7 @@ class _GamePageState extends State<GamePage> {
             ? (selectedBool == null)
             : (selectedIndex == null);
         if (noAnswer) {
+          _deductHeart(); //Descuento por timeout
           setState(() {
             showFeedback = true;
           });
