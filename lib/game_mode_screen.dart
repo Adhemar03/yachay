@@ -25,6 +25,7 @@ class _GameModeScreenState extends State<GameModeScreen> {
   int? userId;
   int? userPoints;
   String? username;
+  int? hearts;
   bool loadingPoints = true;
 
   int _selectedIndex = 2;
@@ -54,14 +55,36 @@ class _GameModeScreenState extends State<GameModeScreen> {
           .select('in_game_points, username')
           .eq('user_id', id)
           .maybeSingle();
+      final now = DateTime.now();
+      final lastReset = prefs.getInt('last_heart_reset') ?? 0;
+      final lastResetDate = DateTime.fromMillisecondsSinceEpoch(lastReset);
+      if (now.day != lastResetDate.day ||
+          now.month != lastResetDate.month ||
+          now.year != lastResetDate.year) {
+        // Reiniciar corazones a 5 si ha pasado un día
+        await prefs.setInt('hearts', 5);
+        await prefs.setInt('last_heart_reset', now.millisecondsSinceEpoch);
+      }
       setState(() {
         userPoints = userRow != null ? userRow['in_game_points'] as int? : null;
         username = userRow != null ? userRow['username'] as String? : null;
+        hearts = prefs.getInt('hearts') ?? 5; // Cargar o inicializar corazones
         loadingPoints = false;
       });
     } else {
       setState(() {
         loadingPoints = false;
+      });
+    }
+  }
+
+  void _updateHearts(int newHearts) {
+    if (newHearts >= 0) {
+      setState(() {
+        hearts = newHearts;
+      });
+      SharedPreferences.getInstance().then((prefs) {
+        prefs.setInt('hearts', newHearts);
       });
     }
   }
@@ -206,8 +229,8 @@ class _GameModeScreenState extends State<GameModeScreen> {
                         color: Colors.teal,
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: const Text(
-                        "x5",
+                      child: Text(
+                        loadingPoints ? '...' : (hearts?.toString() ?? '5'),
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,

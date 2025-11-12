@@ -88,6 +88,8 @@ class _GamePageState extends State<GamePage> {
   final Set<int> hiddenOptions = {};
   bool lockOptions = false;
 
+  int? hearts;
+
   @override
   void dispose() {
     timer?.cancel();
@@ -102,6 +104,15 @@ class _GamePageState extends State<GamePage> {
   void initState() {
     super.initState();
     _loadQuestions();
+    _loadHearts();
+  }
+
+  Future<void> _loadHearts() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      hearts =
+          prefs.getInt('hearts') ?? 5; // Inicializa corazones a 5 si no existen
+    });
   }
 
   Future<void> _loadQuestions() async {
@@ -329,6 +340,45 @@ class _GamePageState extends State<GamePage> {
     return null;
   }
 
+  void _deductHeart() {
+    // Nueva función para descontar corazones
+    if (hearts != null && hearts! > 0) {
+      setState(() {
+        hearts = hearts! - 1;
+      });
+      SharedPreferences.getInstance().then((prefs) {
+        prefs.setInt('hearts', hearts!);
+      });
+      if (hearts == 0) {
+        _endGame();
+      }
+    }
+  }
+
+  // Nueva función para terminar el juego por falta de corazones
+  void _endGame() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("¡Juego terminado!"),
+        content: const Text("Se te acabaron los corazones."),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const GameModeScreen()),
+                (route) => false,
+              );
+            },
+            child: const Text("Aceptar"),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -410,7 +460,7 @@ class _GamePageState extends State<GamePage> {
                                   Positioned.fill(
                                     child: Center(
                                       child: Text(
-                                        'Tiempo: $timeLeft s',
+                                        'Tiempo: $timeLeft s  |  Corazones ❤️: ${hearts ?? 5}', //Muestra corazones junto al tiempo
                                         style: const TextStyle(
                                           color: Colors.white,
                                           fontWeight: FontWeight.bold,
@@ -456,6 +506,8 @@ class _GamePageState extends State<GamePage> {
                                         });
                                         final correct =
                                             _getCorrectIndexForCurrent();
+                                        if (i != correct)
+                                          _deductHeart(); //Descuento por respuesta incorrecta
                                         if (i == correct) correctAnswers++;
                                         await Future.delayed(
                                           const Duration(seconds: 2),
@@ -499,6 +551,8 @@ class _GamePageState extends State<GamePage> {
                                         });
                                         final correct =
                                             _getCorrectIndexForCurrent();
+                                        if (i != correct)
+                                          _deductHeart(); //Descuento por respuesta incorrecta
                                         if (i == correct) correctAnswers++;
                                         await Future.delayed(
                                           const Duration(seconds: 2),
@@ -535,6 +589,8 @@ class _GamePageState extends State<GamePage> {
                                         });
                                         final correct =
                                             _getCorrectIndexForCurrent();
+                                        if (i != correct)
+                                          _deductHeart(); //Descuento por respuesta incorrecta
                                         if (i == correct) correctAnswers++;
                                         await Future.delayed(
                                           const Duration(seconds: 2),
@@ -561,6 +617,9 @@ class _GamePageState extends State<GamePage> {
                                           showFeedback = true;
                                           lockOptions = true;
                                         });
+                                        if (correctBool != null &&
+                                            ans != correctBool)
+                                          _deductHeart(); // Descuento por respuesta incorrecta
                                         if (correctBool != null &&
                                             ans == correctBool)
                                           correctAnswers++;
@@ -598,6 +657,8 @@ class _GamePageState extends State<GamePage> {
                                       });
                                       final correct =
                                           _getCorrectIndexForCurrent();
+                                      if (i != correct)
+                                        _deductHeart(); // Descuento por respuesta incorrecta
                                       if (i == correct) correctAnswers++;
                                       await Future.delayed(
                                         const Duration(seconds: 2),
@@ -691,6 +752,7 @@ class _GamePageState extends State<GamePage> {
             ? (selectedBool == null)
             : (selectedIndex == null);
         if (noAnswer) {
+          _deductHeart(); //Descuento por timeout
           setState(() {
             showFeedback = true;
           });
