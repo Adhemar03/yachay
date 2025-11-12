@@ -6,6 +6,10 @@ import 'question_widgets.dart';
 
 import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'core/achievements_service.dart';
+import 'core/achievement.dart';
+
+// Achievements screen intentionally not imported here to prevent in-game access
 
 import 'dart:math';
 
@@ -49,26 +53,52 @@ class _GamePageState extends State<GamePage> {
         debugPrint('Error updating user points: $e');
       }
     }
+    debugPrint(
+      '_showScoreAndUpdateUser -> userId=$userId pointsToAdd=$pointsToAdd',
+    );
     return pointsToAdd;
   }
 
   /// Records a game session row in GameSessions (game_mode will be NULL)
-  Future<void> _recordGameSession(int finalScore) async {
+  Future<bool> _recordGameSession(int finalScore) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getInt('user_id');
-      if (userId == null) return;
-      await Supabase.instance.client.from('gamesessions').insert({
-        'user_id': userId,
-        'game_mode': null,
-        'final_score': finalScore,
-      });
+      if (userId == null) return false;
+      debugPrint(
+        '_recordGameSession -> calling rpc_insert_gamesession for user=$userId finalScore=$finalScore',
+      );
+      // Call RPC that inserts the gamesession with SECURITY DEFINER
+      final res = await Supabase.instance.client
+          .rpc(
+            'rpc_insert_gamesession',
+            params: {'p_user_id': userId, 'p_final_score': finalScore},
+          )
+          .maybeSingle();
+      debugPrint('_recordGameSession -> rpc result for user=$userId res=$res');
+      if (res != null && res is Map) {
+        try {
+          AchievementsService.instance.addLocalGameSession(
+            Map<String, dynamic>.from(res),
+          );
+        } catch (_) {}
+        return true;
+      }
+      return false;
     } catch (e) {
-      debugPrint('Error recording game session: $e');
+      final msg = e.toString();
+      debugPrint('Error recording game session: $msg');
+      // Do NOT treat RLS/authorization failures as successful inserts anymore.
+      // The app should rely on the DB (or on an RPC) to record sessions.
     }
+    return false;
   }
 
   int correctAnswers = 0;
+  int inGameCorrectStreak = 0;
+  int inGameFastStreak = 0; // respuestas <3s seguidas
+  final List<Achievement> sessionUnlocked = [];
+  final Set<int> categoriesPlayedThisSession = {};
   bool finished = false;
   static const int questionDuration = 10; // segundos por pregunta
   int timeLeft = questionDuration;
@@ -88,6 +118,8 @@ class _GamePageState extends State<GamePage> {
   final Set<int> hiddenOptions = {};
   bool lockOptions = false;
 
+  int? hearts;
+
   @override
   void dispose() {
     timer?.cancel();
@@ -102,6 +134,44 @@ class _GamePageState extends State<GamePage> {
   void initState() {
     super.initState();
     _loadQuestions();
+    _loadHearts();
+  }
+
+  Future<void> _loadHearts() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      hearts =
+          prefs.getInt('hearts') ?? 5; // Inicializa corazones a 5 si no existen
+    });
+  }
+
+  Future<void> _handleCorrectAnswer() async {
+    correctAnswers++;
+    inGameCorrectStreak++;
+    final timeTaken = questionDuration - timeLeft; // segundos
+    if (timeTaken < 3) {
+      inGameFastStreak++;
+    } else {
+      inGameFastStreak = 0;
+    }
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('user_id');
+      final newly = await AchievementsService.instance.checkProgress(
+        correctStreak: inGameCorrectStreak,
+        fastStreak: inGameFastStreak,
+        userId: userId,
+      );
+      if (newly.isNotEmpty) {
+        if (mounted) {
+          setState(() {
+            sessionUnlocked.addAll(newly);
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error checking achievements on correct answer: $e');
+    }
   }
 
   Future<void> _loadQuestions() async {
@@ -185,6 +255,13 @@ class _GamePageState extends State<GamePage> {
         timeLeft = questionDuration;
       });
 
+      // registrar categorías jugadas en esta sesión
+      categoriesPlayedThisSession.clear();
+      for (final q in selected) {
+        final cid = q['category_id'];
+        if (cid is int) categoriesPlayedThisSession.add(cid);
+      }
+
       // Iniciar timer sólo si hay preguntas
       if (preguntas.isNotEmpty) {
         _startTimer();
@@ -219,17 +296,75 @@ class _GamePageState extends State<GamePage> {
         finished = true;
       });
 
-      // Ejecutar actualización de puntos y registro de sesión en background
-      _showScoreAndUpdateUser()
-          .then((sessionPoints) {
-            // registrar sesión (no bloqueamos la UI)
-            _recordGameSession(sessionPoints).catchError((e) {
-              debugPrint('Error recording game session (background): $e');
+      // Actualizar puntos, grabar sesión y comprobar logros (esperamos para mostrar cualquier logro desbloqueado)
+      try {
+        final sessionPoints = await _showScoreAndUpdateUser();
+        final sessionRecorded = await _recordGameSession(sessionPoints);
+        final prefs = await SharedPreferences.getInstance();
+        final userId = prefs.getInt('user_id');
+        final newly = await AchievementsService.instance.checkProgress(
+          userId: userId,
+          sessionEnded: true,
+          categoriesPlayedThisSession: categoriesPlayedThisSession.isEmpty
+              ? null
+              : categoriesPlayedThisSession,
+          sessionPoints: sessionPoints,
+          sessionRecorded: sessionRecorded,
+        );
+        // Comprobar y otorgar desde la app el logro Líder del Ranking (Top10)
+        try {
+          if (userId != null) {
+            final leader = await AchievementsService.instance
+                .checkAndAwardLiderRanking(userId: userId);
+            if (leader != null) newly.add(leader);
+          }
+        } catch (e) {
+          debugPrint('Error awarding lider_ranking: $e');
+        }
+        if (newly.isNotEmpty) {
+          if (mounted) {
+            setState(() {
+              sessionUnlocked.addAll(newly);
             });
-          })
-          .catchError((e) {
-            debugPrint('Error updating user points (background): $e');
-          });
+          }
+          // mostrar diálogo con logros obtenidos en la partida
+          if (mounted) {
+            await showDialog(
+              context: context,
+              builder: (_) => AlertDialog(
+                title: const Text('¡Nuevos logros!'),
+                content: SizedBox(
+                  width: double.maxFinite,
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: newly.length,
+                    separatorBuilder: (_, __) => const Divider(),
+                    itemBuilder: (context, i) {
+                      final a = newly[i];
+                      return ListTile(
+                        leading: const Icon(
+                          Icons.emoji_events,
+                          color: Colors.amber,
+                        ),
+                        title: Text(a.title),
+                        subtitle: Text(a.description),
+                      );
+                    },
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('OK'),
+                  ),
+                ],
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        debugPrint('Error updating user points or checking achievements: $e');
+      }
     }
   }
 
@@ -329,6 +464,45 @@ class _GamePageState extends State<GamePage> {
     return null;
   }
 
+  void _deductHeart() {
+    // Nueva función para descontar corazones
+    if (hearts != null && hearts! > 0) {
+      setState(() {
+        hearts = hearts! - 1;
+      });
+      SharedPreferences.getInstance().then((prefs) {
+        prefs.setInt('hearts', hearts!);
+      });
+      if (hearts == 0) {
+        _endGame();
+      }
+    }
+  }
+
+  // Nueva función para terminar el juego por falta de corazones
+  void _endGame() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("¡Juego terminado!"),
+        content: const Text("Se te acabaron los corazones."),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const GameModeScreen()),
+                (route) => false,
+              );
+            },
+            child: const Text("Aceptar"),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -410,7 +584,7 @@ class _GamePageState extends State<GamePage> {
                                   Positioned.fill(
                                     child: Center(
                                       child: Text(
-                                        'Tiempo: $timeLeft s',
+                                        'Tiempo: $timeLeft s  |  Corazones ❤️: ${hearts ?? 5}', //Muestra corazones junto al tiempo
                                         style: const TextStyle(
                                           color: Colors.white,
                                           fontWeight: FontWeight.bold,
@@ -456,7 +630,17 @@ class _GamePageState extends State<GamePage> {
                                         });
                                         final correct =
                                             _getCorrectIndexForCurrent();
-                                        if (i == correct) correctAnswers++;
+
+                                        if (i != correct)
+                                          _deductHeart(); //Descuento por respuesta incorrecta
+                                        //if (i == correct) correctAnswers++;
+
+                                        if (i == correct) {
+                                          await _handleCorrectAnswer();
+                                        } else {
+                                          inGameCorrectStreak = 0;
+                                          inGameFastStreak = 0;
+                                        }
                                         await Future.delayed(
                                           const Duration(seconds: 2),
                                         );
@@ -499,7 +683,16 @@ class _GamePageState extends State<GamePage> {
                                         });
                                         final correct =
                                             _getCorrectIndexForCurrent();
-                                        if (i == correct) correctAnswers++;
+                                        if (i != correct)
+                                          _deductHeart(); //Descuento por respuesta incorrecta
+                                        //if (i == correct) correctAnswers++;
+
+                                        if (i == correct) {
+                                          await _handleCorrectAnswer();
+                                        } else {
+                                          inGameCorrectStreak = 0;
+                                          inGameFastStreak = 0;
+                                        }
                                         await Future.delayed(
                                           const Duration(seconds: 2),
                                         );
@@ -535,7 +728,16 @@ class _GamePageState extends State<GamePage> {
                                         });
                                         final correct =
                                             _getCorrectIndexForCurrent();
-                                        if (i == correct) correctAnswers++;
+                                        if (i != correct)
+                                          _deductHeart(); //Descuento por respuesta incorrecta
+                                        //if (i == correct) correctAnswers++;
+
+                                        if (i == correct) {
+                                          await _handleCorrectAnswer();
+                                        } else {
+                                          inGameCorrectStreak = 0;
+                                          inGameFastStreak = 0;
+                                        }
                                         await Future.delayed(
                                           const Duration(seconds: 2),
                                         );
@@ -562,8 +764,19 @@ class _GamePageState extends State<GamePage> {
                                           lockOptions = true;
                                         });
                                         if (correctBool != null &&
-                                            ans == correctBool)
-                                          correctAnswers++;
+                                            ans != correctBool)
+                                          _deductHeart(); // Descuento por respuesta incorrecta
+                                        //if (correctBool != null &&
+                                        //  ans == correctBool)
+                                        //correctAnswers++;
+
+                                        if (correctBool != null &&
+                                            ans == correctBool) {
+                                          await _handleCorrectAnswer();
+                                        } else {
+                                          inGameCorrectStreak = 0;
+                                          inGameFastStreak = 0;
+                                        }
                                         await Future.delayed(
                                           const Duration(seconds: 2),
                                         );
@@ -598,7 +811,15 @@ class _GamePageState extends State<GamePage> {
                                       });
                                       final correct =
                                           _getCorrectIndexForCurrent();
-                                      if (i == correct) correctAnswers++;
+                                      if (i != correct)
+                                        _deductHeart(); // Descuento por respuesta incorrecta
+                                      //if (i == correct) correctAnswers++;
+                                      if (i == correct) {
+                                        await _handleCorrectAnswer();
+                                      } else {
+                                        inGameCorrectStreak = 0;
+                                        inGameFastStreak = 0;
+                                      }
                                       await Future.delayed(
                                         const Duration(seconds: 2),
                                       );
@@ -626,7 +847,26 @@ class _GamePageState extends State<GamePage> {
                                         powerUsedThisQuestion ||
                                         fiftyCount <= 0 ||
                                         lockOptions,
-                                    onTap: _useFifty,
+                                    onTap: () async {
+                                      _useFifty();
+                                      // Notificar uso de poder para logros (y guardar en sesión si hay nuevo logro)
+                                      try {
+                                        final prefs =
+                                            await SharedPreferences.getInstance();
+                                        final userId = prefs.getInt('user_id');
+                                        final a = await AchievementsService
+                                            .instance
+                                            .notifyUsedFifty(userId: userId);
+                                        if (a != null)
+                                          setState(
+                                            () => sessionUnlocked.add(a),
+                                          );
+                                      } catch (e) {
+                                        debugPrint(
+                                          'Error notifying used fifty: $e',
+                                        );
+                                      }
+                                    },
                                   ),
                                   _PowerButton(
                                     icon: Icons.flash_on,
@@ -636,7 +876,25 @@ class _GamePageState extends State<GamePage> {
                                         powerUsedThisQuestion ||
                                         autoAnswerCount <= 0 ||
                                         lockOptions,
-                                    onTap: _useAutoAnswer,
+                                    onTap: () async {
+                                      _useAutoAnswer();
+                                      try {
+                                        final prefs =
+                                            await SharedPreferences.getInstance();
+                                        final userId = prefs.getInt('user_id');
+                                        final a = await AchievementsService
+                                            .instance
+                                            .notifyUsedAuto(userId: userId);
+                                        if (a != null)
+                                          setState(
+                                            () => sessionUnlocked.add(a),
+                                          );
+                                      } catch (e) {
+                                        debugPrint(
+                                          'Error notifying used auto: $e',
+                                        );
+                                      }
+                                    },
                                   ),
                                 ],
                               ),
@@ -660,6 +918,7 @@ class _GamePageState extends State<GamePage> {
                                   ),
                                 ),
                               ),
+                              const SizedBox(height: 12),
                             ],
                           ))),
       ),
@@ -691,6 +950,7 @@ class _GamePageState extends State<GamePage> {
             ? (selectedBool == null)
             : (selectedIndex == null);
         if (noAnswer) {
+          _deductHeart(); //Descuento por timeout
           setState(() {
             showFeedback = true;
           });
@@ -728,7 +988,7 @@ class _GamePageState extends State<GamePage> {
     }
   }
 
-  void _useAutoAnswer() {
+  Future<void> _useAutoAnswer() async {
     if (powerUsedThisQuestion || autoAnswerCount <= 0) return;
     final q = preguntas[current];
     final type = q['question_type'] as String? ?? '';
@@ -743,8 +1003,13 @@ class _GamePageState extends State<GamePage> {
         setState(() {
           selectedBool = correct;
           showFeedback = true;
-          if (correct) correctAnswers++;
         });
+        if (correct) {
+          await _handleCorrectAnswer();
+        } else {
+          inGameCorrectStreak = 0;
+          inGameFastStreak = 0;
+        }
       }
     } else {
       final correct = _getCorrectIndexForCurrent();
@@ -752,8 +1017,8 @@ class _GamePageState extends State<GamePage> {
         setState(() {
           selectedIndex = correct;
           showFeedback = true;
-          correctAnswers++;
         });
+        await _handleCorrectAnswer();
       }
     }
     Future.delayed(const Duration(milliseconds: 800), () {
