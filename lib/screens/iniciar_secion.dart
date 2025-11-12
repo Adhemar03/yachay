@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:yachay/core/achievements_service.dart';
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
 import 'package:yachay/core/app_colors.dart';
@@ -99,6 +100,20 @@ class _ScreenIniciarSecionState extends State<ScreenIniciarSecion> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('is_logged', true);
       await prefs.setInt('user_id', u['user_id'] as int);
+  // migrar logros locales al servidor y sincronizar
+  try {
+    await AchievementsService.instance
+        .migrateLocalAchievementsToServer(u['user_id'] as int);
+  } catch (_) {}
+  try {
+    await AchievementsService.instance
+        .syncUserAchievements(u['user_id'] as int);
+  } catch (_) {}
+  // comprobar y otorgar logro Líder del Ranking desde la app
+  try {
+    await AchievementsService.instance
+        .checkAndAwardLiderRanking(userId: u['user_id'] as int);
+  } catch (_) {}
 
       if (!mounted) return;
       // Redireccionamiento a Home
@@ -556,6 +571,23 @@ class _ScreenIniciarSecionState extends State<ScreenIniciarSecion> {
                                 'user_id',
                                 userRow['user_id'] as int,
                               );
+                              // sincronizar logros del servidor para la cuenta Google
+                              try {
+                                await AchievementsService.instance
+                                    .migrateLocalAchievementsToServer(
+                                        userRow['user_id'] as int);
+                              } catch (_) {}
+                              try {
+                                await AchievementsService.instance
+                                    .syncUserAchievements(
+                                        userRow['user_id'] as int);
+                                // comprobar y otorgar logro Líder del Ranking desde la app
+                                try {
+                                  await AchievementsService.instance
+                                      .checkAndAwardLiderRanking(
+                                          userId: userRow['user_id'] as int);
+                                } catch (_) {}
+                              } catch (_) {}
                             } else if (supabaseUser?.id != null) {
                               await prefs.setString(
                                 'user_uuid',

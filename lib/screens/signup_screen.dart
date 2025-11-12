@@ -5,6 +5,7 @@ import '../services/auth_service.dart';
 import 'package:yachay/game_mode_screen.dart';
 import 'iniciar_secion.dart';
 import 'package:yachay/core/app_colors.dart';
+import 'package:yachay/core/achievements_service.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({Key? key}) : super(key: key);
@@ -265,6 +266,23 @@ class _SignupScreenState extends State<SignupScreen> {
                                     'user_id',
                                     userRow['user_id'] as int,
                                   );
+                                  // migrar logros locales al servidor y sincronizar
+                                  try {
+                                    await AchievementsService.instance
+                                        .migrateLocalAchievementsToServer(
+                                            userRow['user_id'] as int);
+                                  } catch (_) {}
+                                  try {
+                                    await AchievementsService.instance
+                                        .syncUserAchievements(
+                                            userRow['user_id'] as int);
+                                  } catch (_) {}
+                                  // comprobar y otorgar logro Líder del Ranking desde la app
+                                  try {
+                                    await AchievementsService.instance
+                                        .checkAndAwardLiderRanking(
+                                            userId: userRow['user_id'] as int);
+                                  } catch (_) {}
                                 }
 
                                 if (mounted) {
