@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:yachay/core/app_colors.dart';
 import 'package:yachay/screens/rellenar_espacio_en_Blanco.dart';
+import 'package:yachay/screens/tienda.dart';
 // import 'game_mode_screen.dart';
 import 'screens/iniciar_secion.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
