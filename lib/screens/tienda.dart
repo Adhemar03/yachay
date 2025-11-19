@@ -234,6 +234,108 @@ class _TiendaState extends State<Tienda> {
     );
   }
 
+  Future<void> _procesarCompra(String descripcion, int precio) async {
+    setState(() => loading = true);
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final id = prefs.getInt('user_id');
+
+      if (id == null) {
+        setState(() => loading = false);
+        showDialog(
+            context: context,
+            builder: (_) => AlertDialog(
+                  backgroundColor: PaletadeColores.fondo,
+                  title: const Text('Error', style: TextStyle(color: Colors.white)),
+                  content: const Text('No se encontró la sesión del usuario.'),
+                ));
+        return;
+      }
+
+      final userRow = await Supabase.instance.client
+          .from('users')
+          .select('in_game_points,lives_count,hints_count,skips_count')
+          .eq('user_id', id)
+          .maybeSingle();
+
+      if (userRow == null) {
+        setState(() => loading = false);
+        showDialog(
+            context: context,
+            builder: (_) => AlertDialog(
+                  backgroundColor: PaletadeColores.fondo,
+                  title: const Text('Error', style: TextStyle(color: Colors.white)),
+                  content: const Text('No se encontró el usuario en la base de datos.'),
+                ));
+        return;
+      }
+
+      final currentPoints = (userRow['in_game_points'] as int?) ?? 0;
+
+      if (currentPoints < precio) {
+        setState(() => loading = false);
+        showDialog(
+            context: context,
+            builder: (_) => AlertDialog(
+                  backgroundColor: PaletadeColores.fondo,
+                  title: const Text('Fondos insuficientes', style: TextStyle(color: Colors.white)),
+                  content: const Text('No tienes suficientes puntos para realizar esta compra.'),
+                ));
+        return;
+      }
+
+      int lives = (userRow['lives_count'] as int?) ?? 0;
+      int hints = (userRow['hints_count'] as int?) ?? 0;
+      int skips = (userRow['skips_count'] as int?) ?? 0;
+
+      final desc = descripcion.toLowerCase();
+      if (desc.contains('vidas')) {
+        lives += 1;
+      } else if (desc.contains('50')) {
+        hints += 1;
+      } else if (desc.contains('next')) {
+        skips += 1;
+      }
+
+      final updated = await Supabase.instance.client.from('users').update({
+        'in_game_points': currentPoints - precio,
+        'lives_count': lives,
+        'hints_count': hints,
+        'skips_count': skips,
+      }).eq('user_id', id).select().maybeSingle();
+
+      if (updated != null) {
+        setState(() {
+          PuntosDeUsuario = (updated['in_game_points'] as int?) ?? (currentPoints - precio);
+          loading = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Compra realizada con éxito')),
+        );
+      } else {
+        setState(() => loading = false);
+        showDialog(
+            context: context,
+            builder: (_) => AlertDialog(
+                  backgroundColor: PaletadeColores.fondo,
+                  title: const Text('Error', style: TextStyle(color: Colors.white)),
+                  content: const Text('No se pudo completar la compra. Intenta nuevamente.'),
+                ));
+      }
+    } catch (e) {
+      setState(() => loading = false);
+      showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+                backgroundColor: PaletadeColores.fondo,
+                title: const Text('Error', style: TextStyle(color: Colors.white)),
+                content: Text('Ocurrió un error: $e'),
+              ));
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -384,7 +486,7 @@ class _TiendaState extends State<Tienda> {
           ),
           title: const Text('Confirmar compra'),
           content: Text(
-            '¿Seguro que quieres comprar "$descripcion" por $precio \$?',
+            '¿Seguro que quieres comprar "$descripcion" por $precio puntos?',
           ),
           actions: [
             ElevatedButton(
@@ -408,7 +510,8 @@ class _TiendaState extends State<Tienda> {
               ),
               onPressed: () {
                 Navigator.of(context).pop();
-                // TODO: implementar acción de confirmar
+                final precioInt = int.tryParse(precio) ?? 0;
+                _procesarCompra(descripcion, precioInt);
               },
               child: const Text('Confirmar'),
             ),
