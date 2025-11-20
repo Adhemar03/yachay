@@ -244,12 +244,13 @@ class _TiendaState extends State<Tienda> {
       if (id == null) {
         setState(() => loading = false);
         showDialog(
-            context: context,
-            builder: (_) => AlertDialog(
-                  backgroundColor: PaletadeColores.fondo,
-                  title: const Text('Error', style: TextStyle(color: Colors.white)),
-                  content: const Text('No se encontró la sesión del usuario.'),
-                ));
+          context: context,
+          builder: (_) => AlertDialog(
+            backgroundColor: PaletadeColores.fondo,
+            title: const Text('Error', style: TextStyle(color: Colors.white)),
+            content: const Text('No se encontró la sesión del usuario.'),
+          ),
+        );
         return;
       }
 
@@ -262,12 +263,15 @@ class _TiendaState extends State<Tienda> {
       if (userRow == null) {
         setState(() => loading = false);
         showDialog(
-            context: context,
-            builder: (_) => AlertDialog(
-                  backgroundColor: PaletadeColores.fondo,
-                  title: const Text('Error', style: TextStyle(color: Colors.white)),
-                  content: const Text('No se encontró el usuario en la base de datos.'),
-                ));
+          context: context,
+          builder: (_) => AlertDialog(
+            backgroundColor: PaletadeColores.fondo,
+            title: const Text('Error', style: TextStyle(color: Colors.white)),
+            content: const Text(
+              'No se encontró el usuario en la base de datos.',
+            ),
+          ),
+        );
         return;
       }
 
@@ -276,12 +280,18 @@ class _TiendaState extends State<Tienda> {
       if (currentPoints < precio) {
         setState(() => loading = false);
         showDialog(
-            context: context,
-            builder: (_) => AlertDialog(
-                  backgroundColor: PaletadeColores.fondo,
-                  title: const Text('Fondos insuficientes', style: TextStyle(color: Colors.white)),
-                  content: const Text('No tienes suficientes puntos para realizar esta compra.'),
-                ));
+          context: context,
+          builder: (_) => AlertDialog(
+            backgroundColor: PaletadeColores.fondo,
+            title: const Text(
+              'Fondos insuficientes',
+              style: TextStyle(color: Colors.white),
+            ),
+            content: const Text(
+              'No tienes suficientes puntos para realizar esta compra.',
+            ),
+          ),
+        );
         return;
       }
 
@@ -298,41 +308,80 @@ class _TiendaState extends State<Tienda> {
         skips += 1;
       }
 
-      final updated = await Supabase.instance.client.from('users').update({
-        'in_game_points': currentPoints - precio,
-        'lives_count': lives,
-        'hints_count': hints,
-        'skips_count': skips,
-      }).eq('user_id', id).select().maybeSingle();
+      final updated = await Supabase.instance.client
+          .from('users')
+          .update({
+            'in_game_points': currentPoints - precio,
+            'lives_count': lives,
+            'hints_count': hints,
+            'skips_count': skips,
+          })
+          .eq('user_id', id)
+          .select()
+          .maybeSingle();
 
       if (updated != null) {
         setState(() {
-          PuntosDeUsuario = (updated['in_game_points'] as int?) ?? (currentPoints - precio);
+          PuntosDeUsuario =
+              (updated['in_game_points'] as int?) ?? (currentPoints - precio);
           loading = false;
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Compra realizada con éxito')),
         );
+        // If the purchase was for a power (hint or skip), call the RPC to increment it
+        try {
+          final descLower = desc;
+          if (descLower.contains('50')) {
+            await Supabase.instance.client
+                .rpc(
+                  'rpc_increment_power',
+                  params: {'p_user_id': id, 'p_power': 'hint', 'p_amount': 1},
+                )
+                .maybeSingle();
+          } else if (descLower.contains('next')) {
+            await Supabase.instance.client
+                .rpc(
+                  'rpc_increment_power',
+                  params: {'p_user_id': id, 'p_power': 'skip', 'p_amount': 1},
+                )
+                .maybeSingle();
+          }
+        } catch (e) {
+          // RPC failed — log and inform the user. Points were deducted, so suggest contacting support.
+          debugPrint('Error ejecutando rpc_increment_power: $e');
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Compra realizada, pero no se pudo aplicar el poder. Contacta soporte.',
+              ),
+            ),
+          );
+        }
       } else {
         setState(() => loading = false);
         showDialog(
-            context: context,
-            builder: (_) => AlertDialog(
-                  backgroundColor: PaletadeColores.fondo,
-                  title: const Text('Error', style: TextStyle(color: Colors.white)),
-                  content: const Text('No se pudo completar la compra. Intenta nuevamente.'),
-                ));
+          context: context,
+          builder: (_) => AlertDialog(
+            backgroundColor: PaletadeColores.fondo,
+            title: const Text('Error', style: TextStyle(color: Colors.white)),
+            content: const Text(
+              'No se pudo completar la compra. Intenta nuevamente.',
+            ),
+          ),
+        );
       }
     } catch (e) {
       setState(() => loading = false);
       showDialog(
-          context: context,
-          builder: (_) => AlertDialog(
-                backgroundColor: PaletadeColores.fondo,
-                title: const Text('Error', style: TextStyle(color: Colors.white)),
-                content: Text('Ocurrió un error: $e'),
-              ));
+        context: context,
+        builder: (_) => AlertDialog(
+          backgroundColor: PaletadeColores.fondo,
+          title: const Text('Error', style: TextStyle(color: Colors.white)),
+          content: Text('Ocurrió un error: $e'),
+        ),
+      );
     }
   }
 
