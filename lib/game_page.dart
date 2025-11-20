@@ -112,8 +112,8 @@ class _GamePageState extends State<GamePage> {
   bool showFeedback = false;
   bool showingExplanation = false;
   // Powers state
-  int fiftyCount = 3;
-  int autoAnswerCount = 2;
+  int fiftyCount = 0; // start at 0; purchases in tienda increase these in DB
+  int autoAnswerCount = 0;
   bool powerUsedThisQuestion = false;
   final Set<int> hiddenOptions = {};
   bool lockOptions = false;
@@ -135,6 +135,41 @@ class _GamePageState extends State<GamePage> {
     super.initState();
     _loadQuestions();
     _loadHearts();
+    _loadPowersFromUsera();
+  }
+
+  /// Load power counts from user's row in `users` table.
+  /// Expects columns: `hints_count` (for 50/50) and `skips_count` (for skip/next).
+  Future<void> _loadPowersFromUsera() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('user_id');
+      if (userId == null) return;
+      debugPrint('Loading powers for user_id=$userId (GamePage)');
+      final res = await Supabase.instance.client
+          .from('users')
+          .select('hints_count, skips_count')
+          .eq('user_id', userId)
+          .maybeSingle();
+      debugPrint('Supabase response for powers (GamePage): $res');
+
+      if (res != null) {
+        final Map<String, dynamic> map = Map<String, dynamic>.from(res as Map);
+        final hints = (map['hints_count'] as int?) ?? 0;
+        final skips = (map['skips_count'] as int?) ?? 0;
+        debugPrint(
+          'Parsed powers for user $userId -> hints:$hints skips:$skips',
+        );
+        setState(() {
+          fiftyCount = hints;
+          autoAnswerCount = skips;
+        });
+      } else {
+        debugPrint('No user row returned for user_id=$userId (GamePage)');
+      }
+    } catch (e) {
+      debugPrint('Error loading powers from users: $e');
+    }
   }
 
   Future<void> _loadHearts() async {
@@ -830,74 +865,85 @@ class _GamePageState extends State<GamePage> {
                                 },
                               ),
                               const SizedBox(height: 24),
+                              const SizedBox(height: 12),
                               Text(
                                 'Pregunta ${current + 1} de ${preguntas.length}',
+                                style: TextStyle(color: Colors.white),
                               ),
                               const SizedBox(height: 12),
-                              // ROW DE PODERES
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceEvenly,
-                                children: [
-                                  _PowerButton(
-                                    icon: Icons.percent,
-                                    label: '50/50',
-                                    counter: fiftyCount,
-                                    disabled:
-                                        powerUsedThisQuestion ||
-                                        fiftyCount <= 0 ||
-                                        lockOptions,
-                                    onTap: () async {
-                                      _useFifty();
-                                      // Notificar uso de poder para logros (y guardar en sesión si hay nuevo logro)
-                                      try {
-                                        final prefs =
-                                            await SharedPreferences.getInstance();
-                                        final userId = prefs.getInt('user_id');
-                                        final a = await AchievementsService
-                                            .instance
-                                            .notifyUsedFifty(userId: userId);
-                                        if (a != null)
-                                          setState(
-                                            () => sessionUnlocked.add(a),
-                                          );
-                                      } catch (e) {
-                                        debugPrint(
-                                          'Error notifying used fifty: $e',
-                                        );
-                                      }
-                                    },
-                                  ),
-                                  _PowerButton(
-                                    icon: Icons.flash_on,
-                                    label: 'Auto',
-                                    counter: autoAnswerCount,
-                                    disabled:
-                                        powerUsedThisQuestion ||
-                                        autoAnswerCount <= 0 ||
-                                        lockOptions,
-                                    onTap: () async {
-                                      _useAutoAnswer();
-                                      try {
-                                        final prefs =
-                                            await SharedPreferences.getInstance();
-                                        final userId = prefs.getInt('user_id');
-                                        final a = await AchievementsService
-                                            .instance
-                                            .notifyUsedAuto(userId: userId);
-                                        if (a != null)
-                                          setState(
-                                            () => sessionUnlocked.add(a),
-                                          );
-                                      } catch (e) {
-                                        debugPrint(
-                                          'Error notifying used auto: $e',
-                                        );
-                                      }
-                                    },
-                                  ),
-                                ],
-                              ),
+                              // ROW DE PODERES: solo mostrar si hay al menos 1 poder disponible
+                              if (fiftyCount > 0 || autoAnswerCount > 0)
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceEvenly,
+                                  children: [
+                                    if (fiftyCount > 0)
+                                      _PowerButton(
+                                        icon: Icons.percent,
+                                        label: '50/50',
+                                        counter: fiftyCount,
+                                        disabled:
+                                            powerUsedThisQuestion ||
+                                            fiftyCount <= 0 ||
+                                            lockOptions,
+                                        onTap: () async {
+                                          await _useFifty();
+                                          // Notificar uso de poder para logros (y guardar en sesión si hay nuevo logro)
+                                          try {
+                                            final prefs =
+                                                await SharedPreferences.getInstance();
+                                            final userId = prefs.getInt(
+                                              'user_id',
+                                            );
+                                            final a = await AchievementsService
+                                                .instance
+                                                .notifyUsedFifty(
+                                                  userId: userId,
+                                                );
+                                            if (a != null)
+                                              setState(
+                                                () => sessionUnlocked.add(a),
+                                              );
+                                          } catch (e) {
+                                            debugPrint(
+                                              'Error notifying used fifty: $e',
+                                            );
+                                          }
+                                        },
+                                      ),
+                                    if (autoAnswerCount > 0)
+                                      _PowerButton(
+                                        icon: Icons.flash_on,
+                                        label: 'Auto',
+                                        counter: autoAnswerCount,
+                                        disabled:
+                                            powerUsedThisQuestion ||
+                                            autoAnswerCount <= 0 ||
+                                            lockOptions,
+                                        onTap: () async {
+                                          await _useAutoAnswer();
+                                          try {
+                                            final prefs =
+                                                await SharedPreferences.getInstance();
+                                            final userId = prefs.getInt(
+                                              'user_id',
+                                            );
+                                            final a = await AchievementsService
+                                                .instance
+                                                .notifyUsedAuto(userId: userId);
+                                            if (a != null)
+                                              setState(
+                                                () => sessionUnlocked.add(a),
+                                              );
+                                          } catch (e) {
+                                            debugPrint(
+                                              'Error notifying used auto: $e',
+                                            );
+                                          }
+                                        },
+                                      ),
+                                  ],
+                                ),
                               const SizedBox(
                                 height: 12,
                               ), // baja un poco el botón
@@ -965,7 +1011,7 @@ class _GamePageState extends State<GamePage> {
   }
 
   // ======= Poderes ========
-  void _useFifty() {
+  Future<void> _useFifty() async {
     if (powerUsedThisQuestion || fiftyCount <= 0) return;
     final q = preguntas[current];
     final answerData = q['answer_data'];
@@ -980,9 +1026,33 @@ class _GamePageState extends State<GamePage> {
       final toHide = incorrects.take(
         incorrects.length >= 2 ? 2 : incorrects.length,
       );
+
+      // Prefer atomic RPC decrement on the DB (rpc_decrement_hint)
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final userId = prefs.getInt('user_id');
+        if (userId != null) {
+          final rpcRes = await Supabase.instance.client
+              .rpc('rpc_decrement_hint', params: {'p_user_id': userId})
+              .maybeSingle();
+          if (rpcRes != null && rpcRes['new_count'] != null) {
+            final newCount = rpcRes['new_count'] as int;
+            setState(() {
+              hiddenOptions.addAll(toHide);
+              fiftyCount = newCount;
+              powerUsedThisQuestion = true;
+            });
+            return;
+          }
+        }
+      } catch (e) {
+        debugPrint('Error calling rpc_decrement_hint: $e');
+      }
+
+      // Fallback: update local state only
       setState(() {
         hiddenOptions.addAll(toHide);
-        fiftyCount -= 1;
+        fiftyCount = (fiftyCount > 0) ? fiftyCount - 1 : 0;
         powerUsedThisQuestion = true;
       });
     }
@@ -992,11 +1062,41 @@ class _GamePageState extends State<GamePage> {
     if (powerUsedThisQuestion || autoAnswerCount <= 0) return;
     final q = preguntas[current];
     final type = q['question_type'] as String? ?? '';
-    setState(() {
-      autoAnswerCount -= 1;
-      powerUsedThisQuestion = true;
-      lockOptions = true;
-    });
+
+    // Prefer atomic RPC decrement on the DB (rpc_decrement_skip)
+    var decrementedInDb = false;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('user_id');
+      if (userId != null) {
+        final rpcRes = await Supabase.instance.client
+            .rpc('rpc_decrement_skip', params: {'p_user_id': userId})
+            .maybeSingle();
+        if (rpcRes != null && rpcRes['new_count'] != null) {
+          final newCount = rpcRes['new_count'] as int;
+          setState(() {
+            autoAnswerCount = newCount;
+            powerUsedThisQuestion = true;
+            lockOptions = true;
+          });
+          decrementedInDb = true;
+        } else {
+          setState(() => autoAnswerCount = 0);
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error calling rpc_decrement_skip: $e');
+    }
+
+    if (!decrementedInDb) {
+      // Fallback: decrement local
+      setState(() {
+        autoAnswerCount = (autoAnswerCount > 0) ? autoAnswerCount - 1 : 0;
+        powerUsedThisQuestion = true;
+        lockOptions = true;
+      });
+    }
     if (type == 'true_false') {
       final correct = _getCorrectBoolForCurrent();
       if (correct != null) {
@@ -1057,8 +1157,9 @@ class _GamePageWithPowersState extends State<GamePageWithPowers> {
   int score = 0;
 
   // --- Poderes (puedes cargar estos contadores desde BD/SharedPreferences) ---
-  int fiftyCount = 3; // cantidad disponible de 50/50
-  int autoAnswerCount = 2; // cantidad disponible de Respuesta Automática
+  int fiftyCount = 0; // cantidad disponible de 50/50 (iniciar en 0)
+  int autoAnswerCount =
+      0; // cantidad disponible de Respuesta Automática (iniciar en 0)
 
   // Control por pregunta
   bool powerUsedThisQuestion = false; // Solo 1 poder por pregunta
@@ -1066,6 +1167,45 @@ class _GamePageWithPowersState extends State<GamePageWithPowers> {
   bool lockOptions = false; // bloquea taps luego de responder
 
   GameQuestion get current => widget.questions[qIndex];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPowersFromUser();
+  }
+
+  Future<void> _loadPowersFromUser() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('user_id');
+      if (userId == null) return;
+      debugPrint('Loading powers for user_id=$userId (GamePageWithPowers)');
+      final res = await Supabase.instance.client
+          .from('users')
+          .select('hints_count, skips_count')
+          .eq('user_id', userId)
+          .maybeSingle();
+      debugPrint('Supabase response for powers (GamePageWithPowers): $res');
+      if (res != null) {
+        final Map<String, dynamic> map = Map<String, dynamic>.from(res as Map);
+        final hints = (map['hints_count'] as int?) ?? 0;
+        final skips = (map['skips_count'] as int?) ?? 0;
+        debugPrint(
+          'Parsed powers for user $userId -> hints:$hints skips:$skips (GamePageWithPowers)',
+        );
+        setState(() {
+          fiftyCount = hints;
+          autoAnswerCount = skips;
+        });
+      } else {
+        debugPrint(
+          'No user row returned for user_id=$userId (GamePageWithPowers)',
+        );
+      }
+    } catch (e) {
+      debugPrint('Error cargando poderes en GamePageWithPowers: $e');
+    }
+  }
 
   // =============== LÓGICA PRINCIPAL ===============
 
@@ -1110,7 +1250,7 @@ class _GamePageWithPowersState extends State<GamePageWithPowers> {
   }
 
   // =============== PODER 50/50 ===============
-  void _useFifty() {
+  Future<void> _useFifty() async {
     if (powerUsedThisQuestion || fiftyCount <= 0) return;
 
     final incorrects = <int>[];
@@ -1122,23 +1262,74 @@ class _GamePageWithPowersState extends State<GamePageWithPowers> {
     incorrects.shuffle(Random());
     final toHide = incorrects.take(2);
 
+    // Try RPC decrement
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('user_id');
+      if (userId != null) {
+        final rpcRes = await Supabase.instance.client
+            .rpc('rpc_decrement_hint', params: {'p_user_id': userId})
+            .maybeSingle();
+        if (rpcRes != null && rpcRes['new_count'] != null) {
+          final newCount = rpcRes['new_count'] as int;
+          setState(() {
+            hiddenOptions.addAll(toHide);
+            fiftyCount = newCount;
+            powerUsedThisQuestion = true;
+          });
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error rpc_decrement_hint in GamePageWithPowers: $e');
+    }
+
+    // Fallback local decrement
     setState(() {
       hiddenOptions.addAll(toHide);
-      fiftyCount -= 1;
-      powerUsedThisQuestion = true; // ya no se puede usar otro poder
+      fiftyCount = (fiftyCount > 0) ? fiftyCount - 1 : 0;
+      powerUsedThisQuestion = true;
     });
   }
 
   // =============== PODER RESPUESTA AUTOMÁTICA ===============
-  void _useAutoAnswer() {
+  Future<void> _useAutoAnswer() async {
     if (powerUsedThisQuestion || autoAnswerCount <= 0) return;
 
-    setState(() {
-      autoAnswerCount -= 1;
-      powerUsedThisQuestion = true;
-      lockOptions = true;
-      score += 100; // lo marcas como correcta
-    });
+    var decrementedInDb = false;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('user_id');
+      if (userId != null) {
+        final rpcRes = await Supabase.instance.client
+            .rpc('rpc_decrement_skip', params: {'p_user_id': userId})
+            .maybeSingle();
+        if (rpcRes != null && rpcRes['new_count'] != null) {
+          final newCount = rpcRes['new_count'] as int;
+          setState(() {
+            autoAnswerCount = newCount;
+            powerUsedThisQuestion = true;
+            lockOptions = true;
+            score += 100;
+          });
+          decrementedInDb = true;
+        } else {
+          setState(() => autoAnswerCount = 0);
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error rpc_decrement_skip in GamePageWithPowers: $e');
+    }
+
+    if (!decrementedInDb) {
+      setState(() {
+        autoAnswerCount = (autoAnswerCount > 0) ? autoAnswerCount - 1 : 0;
+        powerUsedThisQuestion = true;
+        lockOptions = true;
+        score += 100;
+      });
+    }
 
     // Avanza a la siguiente
     Future.delayed(const Duration(milliseconds: 400), _goNext);
@@ -1193,29 +1384,34 @@ class _GamePageWithPowersState extends State<GamePageWithPowers> {
               const Spacer(),
 
               // ====== PODERES EN LA PARTE INFERIOR ======
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _PowerButton(
-                    icon: Icons.percent, // usa tu ícono 50/50
-                    label: '50/50',
-                    counter: fiftyCount,
-                    disabled:
-                        powerUsedThisQuestion || fiftyCount <= 0 || lockOptions,
-                    onTap: _useFifty,
-                  ),
-                  _PowerButton(
-                    icon: Icons.flash_on, // usa tu ícono de “auto”
-                    label: 'Auto',
-                    counter: autoAnswerCount,
-                    disabled:
-                        powerUsedThisQuestion ||
-                        autoAnswerCount <= 0 ||
-                        lockOptions,
-                    onTap: _useAutoAnswer,
-                  ),
-                ],
-              ),
+              if (fiftyCount > 0 || autoAnswerCount > 0)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    if (fiftyCount > 0)
+                      _PowerButton(
+                        icon: Icons.percent, // usa tu ícono 50/50
+                        label: '50/50',
+                        counter: fiftyCount,
+                        disabled:
+                            powerUsedThisQuestion ||
+                            fiftyCount <= 0 ||
+                            lockOptions,
+                        onTap: () => _useFifty(),
+                      ),
+                    if (autoAnswerCount > 0)
+                      _PowerButton(
+                        icon: Icons.flash_on, // usa tu ícono de “auto”
+                        label: 'Auto',
+                        counter: autoAnswerCount,
+                        disabled:
+                            powerUsedThisQuestion ||
+                            autoAnswerCount <= 0 ||
+                            lockOptions,
+                        onTap: () => _useAutoAnswer(),
+                      ),
+                  ],
+                ),
             ],
           ),
         ),

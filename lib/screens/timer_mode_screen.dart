@@ -15,7 +15,11 @@ class ContrarrelojScreen extends StatelessWidget {
           children: [
             const Text(
               "Elige un nivel (2 minutos por partida, categoría al azar)",
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20),
@@ -37,7 +41,14 @@ class ContrarrelojScreen extends StatelessWidget {
           backgroundColor: Colors.teal,
         ),
         onPressed: () {
-          final categorias = ["Historia", "Ciencia", "Geografía", "Deportes", "Arte", "Tecnología"];
+          final categorias = [
+            "Historia",
+            "Ciencia",
+            "Geografía",
+            "Deportes",
+            "Arte",
+            "Tecnología",
+          ];
           final categoria = categorias[Random().nextInt(categorias.length)];
           Navigator.push(
             context,
@@ -50,7 +61,10 @@ class ContrarrelojScreen extends StatelessWidget {
             ),
           );
         },
-        child: Text(nivel, style: const TextStyle(fontSize: 18, color: Colors.white)),
+        child: Text(
+          nivel,
+          style: const TextStyle(fontSize: 18, color: Colors.white),
+        ),
       ),
     );
   }

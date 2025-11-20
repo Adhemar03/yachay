@@ -7,6 +7,7 @@ import 'screens/category_mode_screen.dart';
 import 'screens/quick_mode_screen.dart';
 import 'screens/daily_challenge_screen.dart';
 import 'screens/perfil_screen.dart';
+import 'screens/tienda.dart';
 
 import 'package:flutter/services.dart';
 
@@ -265,8 +266,16 @@ class HomeContent extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: const [
-              Icon(Icons.store, size: 36, color: Colors.teal),
+            children: [
+              IconButton(
+                icon: const Icon(Icons.store, color: Colors.teal, size: 36),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const Tienda()),
+                  );
+                },
+              ),
               Icon(Icons.filter_2, size: 36, color: Colors.teal),
               Icon(Icons.fast_forward, size: 36, color: Colors.teal),
               Icon(Icons.search, size: 36, color: Colors.teal),

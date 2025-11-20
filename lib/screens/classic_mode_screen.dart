@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../game_page.dart';
-import 'dart:math';
 
 class ClasicoScreen extends StatelessWidget {
   const ClasicoScreen({super.key});
@@ -16,7 +15,11 @@ class ClasicoScreen extends StatelessWidget {
           children: [
             const Text(
               "Elige dificultad",
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
             ),
             const SizedBox(height: 20),
             _buildLevelButton(context, "Fácil"),
@@ -37,20 +40,18 @@ class ClasicoScreen extends StatelessWidget {
           backgroundColor: Colors.teal,
         ),
         onPressed: () {
-          final categorias = ["Historia", "Ciencia", "Geografía", "Deportes", "Arte", "Tecnología"];
-          final categoria = categorias[Random().nextInt(categorias.length)];
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => GamePage(
-                modo: 'clásico',
-                nivel: dificultad,
-                categoria: null,
-              ),
+              builder: (_) =>
+                  GamePage(modo: 'clásico', nivel: null, categoria: null),
             ),
           );
         },
-        child: Text(dificultad, style: const TextStyle(fontSize: 18, color: Colors.white)),
+        child: Text(
+          dificultad,
+          style: const TextStyle(fontSize: 18, color: Colors.white),
+        ),
       ),
     );
   }
