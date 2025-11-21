@@ -29,7 +29,7 @@ class StatsScreen extends StatelessWidget {
         .from('users')
         .select('in_game_points')
         .eq('user_id', userId);
-
+    debugPrint('Raw userRowResponse: $userRowResponse');
     final userRowData = _extractData(userRowResponse);
     dynamic rawTotal = 0;
     if (userRowData is List && userRowData.isNotEmpty) {
@@ -42,31 +42,45 @@ class StatsScreen extends StatelessWidget {
         ? rawTotal
         : int.tryParse(rawTotal?.toString() ?? '') ?? 0;
 
-    // Obtener partidas jugadas del usuario
-    final allGameSessionsResponse = await supabase
-        .from('gamesessions')
-        .select('final_score') // Selecciona todos los campos
-        .eq('user_id', userId);
+    // Obtener partidas jugadas del usuario usando la RPC `rpc_get_user_gamesessions`.
+    // Esto evita problemas de RLS/policies porque la función está definida como
+    // SECURITY DEFINER en el servidor (si fue desplegada desde sql/functions).
+    List<dynamic> sessionsList = [];
+    try {
+      final rpcSessionsRes = await supabase
+          .rpc(
+            'rpc_get_user_gamesessions',
+            params: {'p_user_id': userId, 'p_limit': 100},
+          )
+          .maybeSingle();
+      debugPrint('rpc_get_user_gamesessions response: $rpcSessionsRes');
+      final rpcData = _extractData(rpcSessionsRes);
+      if (rpcData is Map && rpcData.containsKey('data')) {
+        sessionsList = List<dynamic>.from(rpcData['data'] as List);
+      } else if (rpcData is List) {
+        sessionsList = List<dynamic>.from(rpcData);
+      }
+    } catch (e) {
+      debugPrint('Error calling rpc_get_user_gamesessions: $e');
+    }
 
-    final allGameSessionsData = _extractData(allGameSessionsResponse);
-    final int gamesPlayed = (allGameSessionsData is List)
-        ? allGameSessionsData.length
-        : 0;
+    final int gamesPlayed = sessionsList.length;
 
-    // 3. Obtener el total de partidas 'correctas' (final_score >= 80)
-    // Contar partidas con puntaje suficientemente alto como "correctas".
-    // Usamos >= 80 para considerar partidas con al menos 80 puntos como acertadas.
-    final correctAnswersResponse = await supabase
-        .from('gamesessions')
-        .select('final_score')
-        .eq('user_id', userId)
-        .gte('final_score', 80);
-
-    // ✅ CORRECCIÓN CLAVE: Usamos _extractData para obtener la lista real de resultados
-    final correctAnswersData = _extractData(correctAnswersResponse);
-    final int totalCorrect = (correctAnswersData is List)
-        ? correctAnswersData.length
-        : 0;
+    // 3. Contar partidas "correctas" (final_score >= 80) a partir de la lista obtenida
+    int totalCorrect = 0;
+    try {
+      totalCorrect = sessionsList.where((s) {
+        if (s is Map && s.containsKey('final_score')) {
+          final v = s['final_score'];
+          final score = v is int ? v : int.tryParse(v?.toString() ?? '') ?? 0;
+          return score >= 80;
+        }
+        return false;
+      }).length;
+    } catch (e) {
+      debugPrint('Error parsing sessionsList for correct answers: $e');
+      totalCorrect = 0;
+    }
 
     // 4. Calcular porcentaje de aciertos
     final accuracy = gamesPlayed > 0 ? (totalCorrect / gamesPlayed) * 100 : 0.0;

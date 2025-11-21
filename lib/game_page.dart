@@ -1032,9 +1032,11 @@ class _GamePageState extends State<GamePage> {
         final prefs = await SharedPreferences.getInstance();
         final userId = prefs.getInt('user_id');
         if (userId != null) {
+          debugPrint('Calling rpc_decrement_hint for user=$userId (GamePage)');
           final rpcRes = await Supabase.instance.client
               .rpc('rpc_decrement_hint', params: {'p_user_id': userId})
               .maybeSingle();
+          debugPrint('rpc_decrement_hint response (GamePage): $rpcRes');
           if (rpcRes != null && rpcRes['new_count'] != null) {
             final newCount = rpcRes['new_count'] as int;
             setState(() {
@@ -1043,6 +1045,8 @@ class _GamePageState extends State<GamePage> {
               powerUsedThisQuestion = true;
             });
             return;
+          } else {
+            debugPrint('rpc_decrement_hint returned no new_count (GamePage)');
           }
         }
       } catch (e) {
@@ -1069,9 +1073,11 @@ class _GamePageState extends State<GamePage> {
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getInt('user_id');
       if (userId != null) {
+        debugPrint('Calling rpc_decrement_skip for user=$userId (GamePage)');
         final rpcRes = await Supabase.instance.client
             .rpc('rpc_decrement_skip', params: {'p_user_id': userId})
             .maybeSingle();
+        debugPrint('rpc_decrement_skip response (GamePage): $rpcRes');
         if (rpcRes != null && rpcRes['new_count'] != null) {
           final newCount = rpcRes['new_count'] as int;
           setState(() {
@@ -1081,6 +1087,7 @@ class _GamePageState extends State<GamePage> {
           });
           decrementedInDb = true;
         } else {
+          debugPrint('rpc_decrement_skip returned no new_count (GamePage)');
           setState(() => autoAnswerCount = 0);
           return;
         }
