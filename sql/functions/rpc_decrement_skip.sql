@@ -4,10 +4,13 @@ returns table(new_count int)
 language plpgsql
 security definer
 as $$
+declare
+  v_new int;
 begin
   update users
   set skips_count = greatest(coalesce(skips_count,0) - 1, 0)
   where user_id = p_user_id
-  returning skips_count as new_count;
+  returning skips_count into v_new;
+  return query select v_new as new_count;
 end;
 $$;

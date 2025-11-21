@@ -330,35 +330,9 @@ class _TiendaState extends State<Tienda> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Compra realizada con éxito')),
         );
-        // If the purchase was for a power (hint or skip), call the RPC to increment it
-        try {
-          final descLower = desc;
-          if (descLower.contains('50')) {
-            await Supabase.instance.client
-                .rpc(
-                  'rpc_increment_power',
-                  params: {'p_user_id': id, 'p_power': 'hint', 'p_amount': 1},
-                )
-                .maybeSingle();
-          } else if (descLower.contains('next')) {
-            await Supabase.instance.client
-                .rpc(
-                  'rpc_increment_power',
-                  params: {'p_user_id': id, 'p_power': 'skip', 'p_amount': 1},
-                )
-                .maybeSingle();
-          }
-        } catch (e) {
-          // RPC failed — log and inform the user. Points were deducted, so suggest contacting support.
-          debugPrint('Error ejecutando rpc_increment_power: $e');
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Compra realizada, pero no se pudo aplicar el poder. Contacta soporte.',
-              ),
-            ),
-          );
-        }
+        // Note: we already updated the user's `hints_count`/`skips_count` above
+        // (the `update` call increments the appropriate counter). Do not call
+        // `rpc_increment_power` here as that would increment twice.
       } else {
         setState(() => loading = false);
         showDialog(

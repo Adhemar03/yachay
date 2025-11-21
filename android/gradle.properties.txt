@@ -1,0 +1,17 @@
+# --- CONFIGURACION MODIFICADA PARA DISCOS C/D Y BAJA MEMORIA ---
+
+# Limite de memoria bajo
+org.gradle.jvmargs=-Xmx1536m -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8
+kotlin.daemon.jvmargs=-Xmx1536m
+
+# IMPORTANTE: Desactivar compilación incremental para evitar error de discos C: vs D:
+kotlin.incremental=false
+kotlin.incremental.useClasspathSnapshot=false
+kapt.incremental.apt=false
+
+# Configuraciones estándar
+android.useAndroidX=true
+android.enableJetifier=true
+org.gradle.daemon=false
+org.gradle.parallel=false
+org.gradle.caching=false
