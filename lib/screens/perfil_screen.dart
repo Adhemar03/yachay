@@ -38,6 +38,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
   String? username;
   String? email;
   int? userPoints;
+  int? userId;
   String? avatarUrl;
   bool loading = true;
   bool _loadingLogout = false;
@@ -65,6 +66,9 @@ class _PerfilScreenState extends State<PerfilScreen> {
     final id = prefs.getInt('user_id');
 
     if (id != null) {
+      setState(() {
+        userId = id; // ← guardamos el ID real para mostrarlo
+      });
       final userRow = await Supabase.instance.client
           .from('users')
           .select('username, email, in_game_points, avatar_url')
@@ -464,7 +468,10 @@ class _PerfilScreenState extends State<PerfilScreen> {
                       const SizedBox(height: 6),
                       _buildInfoRow(Icons.email_outlined, email ?? '-'),
                       const SizedBox(height: 6),
-                      _buildInfoRow(Icons.credit_card, '1293782'),
+                      _buildInfoRow(
+                        Icons.credit_card,
+                        userId?.toString() ?? '—',
+                      ),
                     ],
                   ),
                 ),

@@ -8,6 +8,8 @@ import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/achievements_service.dart';
 import 'core/achievement.dart';
+import 'core/hearts_service.dart';
+import 'screens/tienda.dart';
 
 // Achievements screen intentionally not imported here to prevent in-game access
 
@@ -134,8 +136,17 @@ class _GamePageState extends State<GamePage> {
   void initState() {
     super.initState();
     _loadQuestions();
-    _loadHearts();
     _loadPowersFromUsera();
+    _loadHeartsFromSupabase();
+  }
+
+  Future<void> _loadHeartsFromSupabase() async {
+    final currentHearts = await HeartsService().loadHeartsFromSupabase();
+    if (mounted) {
+      setState(() {
+        hearts = currentHearts;
+      });
+    }
   }
 
   /// Load power counts from user's row in `users` table.
@@ -170,14 +181,6 @@ class _GamePageState extends State<GamePage> {
     } catch (e) {
       debugPrint('Error loading powers from users: $e');
     }
-  }
-
-  Future<void> _loadHearts() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      hearts =
-          prefs.getInt('hearts') ?? 5; // Inicializa corazones a 5 si no existen
-    });
   }
 
   Future<void> _handleCorrectAnswer() async {
@@ -499,18 +502,57 @@ class _GamePageState extends State<GamePage> {
     return null;
   }
 
-  void _deductHeart() {
-    // Nueva función para descontar corazones
-    if (hearts != null && hearts! > 0) {
-      setState(() {
-        hearts = hearts! - 1;
-      });
-      SharedPreferences.getInstance().then((prefs) {
-        prefs.setInt('hearts', hearts!);
-      });
-      if (hearts == 0) {
-        _endGame();
-      }
+  void _deductHeart() async {
+    final newHearts = await HeartsService().deductHeart();
+    setState(() => hearts = newHearts);
+
+    if (newHearts <= 0) {
+      _endGameBecauseNoHearts();
+    }
+  }
+
+  void _endGameBecauseNoHearts() async {
+    timer?.cancel(); // ← importante: parar el timer
+
+    final goToStore = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        backgroundColor: Color(0xFF162936),
+        title: Text(
+          "¡Se acabaron tus vidas!",
+          style: TextStyle(color: Colors.white),
+        ),
+        content: Text(
+          "Necesitas más corazones para seguir jugando.",
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text("Salir", style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Color(0xFF04D9B2)),
+            onPressed: () => Navigator.pop(context, true),
+            child: Text("Ir a la tienda"),
+          ),
+        ],
+      ),
+    );
+
+    // Salir del juego siempre
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const GameModeScreen()),
+      (route) => false,
+    );
+
+    // Si quiso ir a la tienda, lo llevamos
+    if (goToStore == true) {
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const Tienda()));
     }
   }
 
