@@ -14,6 +14,7 @@ import 'package:flutter/services.dart';
 import 'screens/leaderboard_screen.dart'; // Asegúrate de importar LeaderboardScreen
 import 'screens/stats_screen.dart'; // Asegúrate de importar correctamente la pantalla de estadísticas
 // import 'game_page.dart'; // eliminado porque no se usa aquí
+import 'core/hearts_service.dart';
 
 class GameModeScreen extends StatefulWidget {
   const GameModeScreen({super.key});
@@ -43,51 +44,40 @@ class _GameModeScreenState extends State<GameModeScreen> {
     );
   }
 
+  // Reemplaza completamente _loadUserData():
   Future<void> _loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
     final id = prefs.getInt('user_id');
     if (id != null) {
       setState(() {
         userId = id;
+        loadingPoints = true;
       });
-      // Consultar puntos y username en Supabase
+
       final userRow = await Supabase.instance.client
           .from('users')
           .select('in_game_points, username')
           .eq('user_id', id)
           .maybeSingle();
-      final now = DateTime.now();
-      final lastReset = prefs.getInt('last_heart_reset') ?? 0;
-      final lastResetDate = DateTime.fromMillisecondsSinceEpoch(lastReset);
-      if (now.day != lastResetDate.day ||
-          now.month != lastResetDate.month ||
-          now.year != lastResetDate.year) {
-        // Reiniciar corazones a 5 si ha pasado un día
-        await prefs.setInt('hearts', 5);
-        await prefs.setInt('last_heart_reset', now.millisecondsSinceEpoch);
-      }
+
+      // ← AQUÍ CARGAMOS LAS VIDAS CORRECTAMENTE
+      final heartsFromServer = await HeartsService().loadHeartsFromSupabase();
+
       setState(() {
-        userPoints = userRow != null ? userRow['in_game_points'] as int? : null;
-        username = userRow != null ? userRow['username'] as String? : null;
-        hearts = prefs.getInt('hearts') ?? 5; // Cargar o inicializar corazones
+        userPoints = userRow?['in_game_points'] as int?;
+        username = userRow?['username'] as String?;
+        hearts = heartsFromServer;
         loadingPoints = false;
       });
     } else {
-      setState(() {
-        loadingPoints = false;
-      });
+      setState(() => loadingPoints = false);
     }
   }
 
-  void _updateHearts(int newHearts) {
-    if (newHearts >= 0) {
-      setState(() {
-        hearts = newHearts;
-      });
-      SharedPreferences.getInstance().then((prefs) {
-        prefs.setInt('hearts', newHearts);
-      });
-    }
+  // Reemplaza _updateHearts (ya no se usa, pero si quieres mantener compatibilidad):
+  void _updateHearts(int newHearts) async {
+    setState(() => hearts = newHearts);
+    // Ya no guardamos en SharedPreferences porque HeartsService lo hace
   }
 
   final List<Widget> _screens = [
@@ -303,26 +293,31 @@ class HomeContent extends StatelessWidget {
                 context,
                 "assets/images/clasico.png",
                 const ClasicoScreen(),
+                1,
               ),
               _buildImageButton(
                 context,
                 "assets/images/contrareloj.png",
                 const ContrarrelojScreen(),
+                1,
               ),
               _buildImageButton(
                 context,
                 "assets/images/elegirCategoria.png",
                 const CategoriaScreen(),
+                1,
               ),
               _buildImageButton(
                 context,
                 "assets/images/partidaRapida.png",
                 const QuickModeScreen(),
+                1,
               ),
               _buildImageButton(
                 context,
                 "assets/images/dasafioDiario.png",
                 const DailyChallengeScreen(),
+                1,
               ),
             ],
           ),
@@ -335,25 +330,62 @@ class HomeContent extends StatelessWidget {
     BuildContext context,
     String imagePath,
     Widget nextScreen,
+    int requiredHearts, // nuevo parámetro
   ) {
     return Material(
       borderRadius: BorderRadius.circular(16),
       elevation: 4,
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: () {
+        onTap: () async {
+          final currentHearts = await HeartsService().loadHeartsFromSupabase();
+          if (currentHearts <= 0) {
+            await _showNoHeartsDialog(context); // ← ahora es async
+            return;
+          }
           Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => nextScreen),
           );
         },
-        splashColor: Colors.white24,
-        highlightColor: Colors.white10,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(16),
           child: Image.asset(imagePath, fit: BoxFit.cover),
         ),
       ),
     );
+  }
+
+  static Future<void> _showNoHeartsDialog(BuildContext context) async {
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        backgroundColor: Color(0xFF162936),
+        title: Text("¡Sin vidas!", style: TextStyle(color: Colors.white)),
+        content: Text(
+          "No tienes vidas disponibles.\n\nPuedes comprar más en la tienda.",
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text("Cancelar", style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Color(0xFF04D9B2)),
+            onPressed: () => Navigator.pop(context, true),
+            child: Text("Ir a la tienda"),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const Tienda()),
+      );
+    }
   }
 }
