@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:yachay/core/app_colors.dart';
 import 'package:yachay/game_mode_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:yachay/core/hearts_service.dart';
 
 class Tienda extends StatefulWidget {
   const Tienda({super.key});
@@ -330,6 +331,8 @@ class _TiendaState extends State<Tienda> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Compra realizada con éxito')),
         );
+        // Forzar recarga de corazones en GameModeScreen
+        await HeartsService().loadHeartsFromSupabase(forceRefresh: true);
         // Note: we already updated the user's `hints_count`/`skips_count` above
         // (the `update` call increments the appropriate counter). Do not call
         // `rpc_increment_power` here as that would increment twice.
