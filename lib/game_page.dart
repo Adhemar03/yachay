@@ -109,6 +109,7 @@ class _GamePageState extends State<GamePage> {
   List<Map<String, dynamic>> preguntas = [];
   bool loading = true;
   int current = 0;
+  DateTime? dailyChallengeDate;
   int? selectedIndex;
   bool? selectedBool;
   bool showFeedback = false;
@@ -217,6 +218,97 @@ class _GamePageState extends State<GamePage> {
       loading = true;
     });
     try {
+      // Si el modo es Desafío Diario, cargamos las preguntas desde la tabla DailyChallenges
+      final modoLower = widget.modo.toLowerCase();
+      if (modoLower.contains('diario')) {
+        // Obtener el último registro de DailyChallenges (la más reciente)
+        final daily = await Supabase.instance.client
+            .from('dailychallenges')
+            .select('question_ids, challenge_date')
+            .order('challenge_date', ascending: false)
+            .limit(1)
+            .maybeSingle();
+
+        if (daily == null) {
+          setState(() {
+            preguntas = [];
+            loading = false;
+          });
+          return;
+        }
+
+        // Guardar la fecha del desafío para usarla después al grabar el historial
+        try {
+          final cd = daily['challenge_date'];
+          if (cd is String) {
+            dailyChallengeDate = DateTime.parse(cd);
+          } else if (cd is DateTime) {
+            dailyChallengeDate = cd;
+          }
+        } catch (_) {
+          dailyChallengeDate = DateTime.now();
+        }
+
+        final qidsRaw = daily['question_ids'];
+        List<int> qids = [];
+        try {
+          qids = List<int>.from(qidsRaw as List);
+        } catch (e) {
+          debugPrint('Error parsing question_ids from dailychallenges: $e');
+        }
+
+        if (qids.isEmpty) {
+          setState(() {
+            preguntas = [];
+            loading = false;
+          });
+          return;
+        }
+
+        // Traer las preguntas por ID
+        final res = await Supabase.instance.client
+          .from('questions')
+          .select()
+          .filter('question_id', 'in', '(${qids.join(',')})');
+
+        List<Map<String, dynamic>> preguntasListRaw = [];
+        try {
+          preguntasListRaw = List<Map<String, dynamic>>.from(
+            (res as List).map((e) => Map<String, dynamic>.from(e)),
+          );
+        } catch (e) {
+          debugPrint('Error converting preguntas list (daily): $e');
+        }
+
+        // Ordenar según el arreglo de IDs original
+        preguntasListRaw.sort((a, b) {
+          final ai = a['question_id'] as int? ?? 0;
+          final bi = b['question_id'] as int? ?? 0;
+          return qids.indexOf(ai).compareTo(qids.indexOf(bi));
+        });
+
+        setState(() {
+          preguntas = preguntasListRaw;
+          loading = false;
+          current = 0;
+          selectedIndex = null;
+          selectedBool = null;
+          showFeedback = false;
+          showingExplanation = false;
+          timeLeft = questionDuration;
+        });
+
+        // registrar categorías jugadas en esta sesión
+        categoriesPlayedThisSession.clear();
+        for (final q in preguntas) {
+          final cid = q['category_id'];
+          if (cid is int) categoriesPlayedThisSession.add(cid);
+        }
+
+        if (preguntas.isNotEmpty) _startTimer();
+        return;
+      }
+
       // normalizar categoría recibida
       final rawCategoria = widget.categoria?.trim();
       final categoriaSelected = (rawCategoria == null || rawCategoria.isEmpty)
@@ -312,6 +404,30 @@ class _GamePageState extends State<GamePage> {
     }
   }
 
+  /// Graba el historial del desafío diario en `userdailyhistory` en lugar de gamesessions
+  Future<bool> _recordUserDailyHistory(int finalScore) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('user_id');
+      if (userId == null) return false;
+
+      final dateStr = (dailyChallengeDate ?? DateTime.now()).toIso8601String().split('T')[0];
+
+      final res = await Supabase.instance.client
+          .from('userdailyhistory')
+          .insert({
+        'user_id': userId,
+        'challenge_date': dateStr,
+        'score': finalScore,
+      }).maybeSingle();
+
+      return res != null;
+    } catch (e) {
+      debugPrint('Error recording user daily history: $e');
+      return false;
+    }
+  }
+
   Future<void> _nextQuestion() async {
     timer?.cancel();
     if (current < preguntas.length - 1) {
@@ -337,7 +453,12 @@ class _GamePageState extends State<GamePage> {
       // Actualizar puntos, grabar sesión y comprobar logros (esperamos para mostrar cualquier logro desbloqueado)
       try {
         final sessionPoints = await _showScoreAndUpdateUser();
-        final sessionRecorded = await _recordGameSession(sessionPoints);
+        bool sessionRecorded = false;
+        if (widget.modo.toLowerCase().contains('diario')) {
+          sessionRecorded = await _recordUserDailyHistory(sessionPoints);
+        } else {
+          sessionRecorded = await _recordGameSession(sessionPoints);
+        }
         final prefs = await SharedPreferences.getInstance();
         final userId = prefs.getInt('user_id');
         final newly = await AchievementsService.instance.checkProgress(
