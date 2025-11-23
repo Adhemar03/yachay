@@ -526,10 +526,19 @@ class _GamePageState extends State<GamePage> {
       }
     }
   }
-
   Widget _buildExplanationScreen() {
     final explanation =
         preguntas[current]['explanation'] ?? 'Sin explicación disponible.';
+    // Buscar una imagen de explicación en varios campos posibles
+    String? explanationImage;
+    try {
+      final q = preguntas[current];
+      explanationImage = q['explanation_image'] as String? ?? q['explanation_image_url'] as String?;
+      explanationImage ??= q['media_url'] as String?;
+      explanationImage ??= q['image_url'] as String?;
+    } catch (_) {
+      explanationImage = null;
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -547,6 +556,39 @@ class _GamePageState extends State<GamePage> {
           explanation,
           style: const TextStyle(fontSize: 20, color: Colors.white),
         ),
+        const SizedBox(height: 80),
+        // Imagen específica solicitada por el usuario (siempre mostrarla), mostrada más pequeña
+        SizedBox(
+          width: double.infinity,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: 320,
+                maxWidth: MediaQuery.of(context).size.width * 0.95,
+              ),
+              child: Image.network(
+                'https://xbdtenznssbragnduobc.supabase.co/storage/v1/object/public/media/explicacion%20(1).png',
+                fit: BoxFit.contain,
+              ),
+            ),
+          ),
+        ),
+        // Si la pregunta tiene una imagen de explicación adicional, mostrarla debajo (opcional), también reducida
+        if (explanationImage != null && explanationImage.isNotEmpty)
+          SizedBox(
+            width: double.infinity,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: 300,
+                  maxWidth: MediaQuery.of(context).size.width * 0.9,
+                ),
+                child: (explanationImage.startsWith('http')
+                    ? Image.network(explanationImage, fit: BoxFit.contain)
+                    : Image.asset(explanationImage, fit: BoxFit.contain)),
+              ),
+            ),
+          ),
         const Spacer(),
         SizedBox(
           width: double.infinity,
@@ -732,7 +774,7 @@ class _GamePageState extends State<GamePage> {
                               color: Colors.tealAccent,
                             ),
                           ),
-                          const SizedBox(height: 32),
+                          SizedBox(height: MediaQuery.of(context).size.height * 0.5),
                           ElevatedButton(
                             onPressed: () {
                               Navigator.of(context).pushAndRemoveUntil(
@@ -843,6 +885,13 @@ class _GamePageState extends State<GamePage> {
                                           const Duration(seconds: 2),
                                         );
                                         if (!mounted) return;
+                                        // Si es correcto y NO es modo diario, mostrar explicación didáctica
+                                        if (i == correct && !widget.modo.toLowerCase().contains('diario')) {
+                                          setState(() {
+                                            showingExplanation = true;
+                                          });
+                                          return;
+                                        }
                                         _nextQuestion();
                                       },
                                     );
@@ -895,6 +944,12 @@ class _GamePageState extends State<GamePage> {
                                           const Duration(seconds: 2),
                                         );
                                         if (!mounted) return;
+                                        if (i == correct && !widget.modo.toLowerCase().contains('diario')) {
+                                          setState(() {
+                                            showingExplanation = true;
+                                          });
+                                          return;
+                                        }
                                         _nextQuestion();
                                       },
                                     );
@@ -940,6 +995,12 @@ class _GamePageState extends State<GamePage> {
                                           const Duration(seconds: 2),
                                         );
                                         if (!mounted) return;
+                                        if (i == correct && !widget.modo.toLowerCase().contains('diario')) {
+                                          setState(() {
+                                            showingExplanation = true;
+                                          });
+                                          return;
+                                        }
                                         _nextQuestion();
                                       },
                                     );
@@ -979,6 +1040,14 @@ class _GamePageState extends State<GamePage> {
                                           const Duration(seconds: 2),
                                         );
                                         if (!mounted) return;
+                                        if (correctBool != null &&
+                                            ans == correctBool &&
+                                            !widget.modo.toLowerCase().contains('diario')) {
+                                          setState(() {
+                                            showingExplanation = true;
+                                          });
+                                          return;
+                                        }
                                         _nextQuestion();
                                       },
                                     );
@@ -1022,6 +1091,12 @@ class _GamePageState extends State<GamePage> {
                                         const Duration(seconds: 2),
                                       );
                                       if (!mounted) return;
+                                      if (i == correct && !widget.modo.toLowerCase().contains('diario')) {
+                                        setState(() {
+                                          showingExplanation = true;
+                                        });
+                                        return;
+                                      }
                                       _nextQuestion();
                                     },
                                   );
@@ -1113,15 +1188,17 @@ class _GamePageState extends State<GamePage> {
                               SizedBox(
                                 width: double.infinity,
                                 child: ElevatedButton(
-                                  onPressed: () {
-                                    timer?.cancel();
-                                    Navigator.of(context).pushAndRemoveUntil(
-                                      MaterialPageRoute(
-                                        builder: (_) => const GameModeScreen(),
-                                      ),
-                                      (route) => false,
-                                    );
-                                  },
+                                  onPressed: (widget.modo.toLowerCase().contains('diario') || showFeedback || showingExplanation)
+                                      ? null
+                                      : () {
+                                          timer?.cancel();
+                                          Navigator.of(context).pushAndRemoveUntil(
+                                            MaterialPageRoute(
+                                              builder: (_) => const GameModeScreen(),
+                                            ),
+                                            (route) => false,
+                                          );
+                                        },
                                   child: const Text(
                                     'Terminar partida y volver al inicio',
                                   ),

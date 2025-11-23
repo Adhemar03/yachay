@@ -22,9 +22,9 @@ class ClasicoScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-            _buildLevelButton(context, "Fácil"),
-            _buildLevelButton(context, "Medio"),
-            _buildLevelButton(context, "Difícil"),
+            _buildLevelButton(context, "fácil"),
+            _buildLevelButton(context, "medio"),
+            _buildLevelButton(context, "difícil"),
           ],
         ),
       ),
@@ -44,7 +44,7 @@ class ClasicoScreen extends StatelessWidget {
             context,
             MaterialPageRoute(
               builder: (_) =>
-                  GamePage(modo: 'clásico', nivel: null, categoria: null),
+                  GamePage(modo: 'clásico', nivel: dificultad, categoria: null),
             ),
           );
         },
