@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:yachay/core/achievements_service.dart';
 import 'iniciar_secion.dart';
 import 'package:yachay/core/app_colors.dart';
 
@@ -403,6 +404,12 @@ class _PerfilScreenState extends State<PerfilScreen> {
 
   Future<void> _logout() async {
     setState(() => _loadingLogout = true);
+
+    // Reset local achievements (in-memory + persisted) so a new account
+    // does not inherit the previous user's local unlocked achievements.
+    try {
+      await AchievementsService.instance.resetAll();
+    } catch (_) {}
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
