@@ -252,7 +252,6 @@ class HomeContent extends StatefulWidget {
 }
 
 class _HomeContentState extends State<HomeContent> {
-
   Future<bool> _playedToday() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -277,28 +276,35 @@ class _HomeContentState extends State<HomeContent> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              IconButton(
-                icon: const Icon(Icons.store, color: Colors.teal, size: 36),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const Tienda()),
-                  );
-                },
+              Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: const Color(0xFF162936), // Color entero sólido
+                ),
+                child: IconButton(
+                  icon: const Icon(
+                    Icons.store,
+                    color: Colors.tealAccent,
+                    size: 36,
+                  ),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const Tienda()),
+                    );
+                  },
+                ),
               ),
-              Icon(Icons.filter_2, size: 36, color: Colors.teal),
-              Icon(Icons.fast_forward, size: 36, color: Colors.teal),
-              Icon(Icons.search, size: 36, color: Colors.teal),
             ],
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         const Text(
           "Selecciona el modo de juego",
           style: TextStyle(
@@ -361,7 +367,10 @@ class _HomeContentState extends State<HomeContent> {
               borderRadius: BorderRadius.circular(16),
               child: Opacity(
                 opacity: 0.9,
-                child: Image.asset("assets/images/dasafioDiario.png", fit: BoxFit.cover),
+                child: Image.asset(
+                  "assets/images/dasafioDiario.png",
+                  fit: BoxFit.cover,
+                ),
               ),
             ),
           );
@@ -376,7 +385,10 @@ class _HomeContentState extends State<HomeContent> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.asset("assets/images/dasafioDiario.png", fit: BoxFit.cover),
+                  Image.asset(
+                    "assets/images/dasafioDiario.png",
+                    fit: BoxFit.cover,
+                  ),
                   Container(
                     color: Colors.black45,
                     alignment: Alignment.center,
@@ -467,6 +479,4 @@ class _HomeContentState extends State<HomeContent> {
       );
     }
   }
-
-  
 }

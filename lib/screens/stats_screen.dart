@@ -103,7 +103,8 @@ class StatsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Estadísticas")),
+      //appBar: AppBar(title: const Text("Estadísticas")),
+      backgroundColor: const Color(0xFFFFFFFF),
       body: FutureBuilder<Map<String, dynamic>>(
         future: _loadStats(),
         builder: (context, snapshot) {
