@@ -32,14 +32,14 @@ class MultipleChoiceQuestion extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 24), // reducido desde 64 a 24
+        const SizedBox(height: 12), // reducido desde 64 a 24
         TextField(
           controller: TextEditingController(text: question),
           readOnly: true,
           minLines: 3,
-          maxLines: 3,
+          maxLines: 5,
           style: const TextStyle(
-            fontSize: 30,
+            fontSize: 25,
             fontWeight: FontWeight.bold,
             color: Colors.white,
           ),
@@ -49,7 +49,7 @@ class MultipleChoiceQuestion extends StatelessWidget {
             contentPadding: EdgeInsets.zero,
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         ...List.generate(options.length, (i) {
           // ocultar opciones solicitadas por 50/50
           if (hiddenOptions != null && hiddenOptions!.contains(i)) {
@@ -175,7 +175,7 @@ class ImageRecognitionQuestion extends StatelessWidget {
             color: Colors.white,
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         Center(
           child: Wrap(
             alignment: WrapAlignment.center,
@@ -315,7 +315,7 @@ class _AudioRecognitionQuestionState extends State<AudioRecognitionQuestion> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 48), // reducido desde 128 a 48
+        const SizedBox(height: 12), // reducido desde 128 a 48
         Text(
           widget.question,
           style: const TextStyle(
@@ -351,7 +351,7 @@ class _AudioRecognitionQuestionState extends State<AudioRecognitionQuestion> {
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         ...List.generate(widget.options.length, (i) {
           if (widget.hiddenOptions != null &&
               widget.hiddenOptions!.contains(i)) {
@@ -611,7 +611,7 @@ class _FillInTheBlankDragQuestionState
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 24),
+          const SizedBox(height: 12),
           // Aquí se muestra la pregunta con el DragTarget reemplazando los puntos inline
           rich,
           const SizedBox(height: 18),
@@ -709,10 +709,10 @@ class _FillInTheBlankDragQuestionState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 24),
+        const SizedBox(height: 12),
         // Mostrar la pregunta
         Text(widget.question, style: questionStyle),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         // Espacio en blanco (DragTarget) debajo (comportamiento legacy)
         Center(
           child: DragTarget<int>(
@@ -890,7 +890,7 @@ class TrueFalseQuestion extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4.0),
           child: Text(
