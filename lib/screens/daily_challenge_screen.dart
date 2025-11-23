@@ -26,8 +26,8 @@ class DailyChallengeScreen extends StatelessWidget {
               MaterialPageRoute(
                 builder: (_) => GamePage(
                   modo: 'desafío diario',
-                  nivel: nivel,
-                  categoria: categoria,
+                  nivel: null,
+                  categoria: null,
                 ),
               ),
             );

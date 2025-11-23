@@ -244,8 +244,34 @@ class _GameModeScreenState extends State<GameModeScreen> {
   }
 }
 
-class HomeContent extends StatelessWidget {
+class HomeContent extends StatefulWidget {
   const HomeContent({super.key});
+
+  @override
+  State<HomeContent> createState() => _HomeContentState();
+}
+
+class _HomeContentState extends State<HomeContent> {
+
+  Future<bool> _playedToday() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final id = prefs.getInt('user_id');
+      if (id == null) return false;
+      final dateStr = DateTime.now().toIso8601String().split('T')[0];
+
+      final res = await Supabase.instance.client
+          .from('userdailyhistory')
+          .select('history_id')
+          .eq('user_id', id)
+          .eq('challenge_date', dateStr)
+          .maybeSingle();
+
+      return res != null;
+    } catch (e) {
+      return false;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -313,16 +339,69 @@ class HomeContent extends StatelessWidget {
                 const QuickModeScreen(),
                 1,
               ),
-              _buildImageButton(
-                context,
-                "assets/images/dasafioDiario.png",
-                const DailyChallengeScreen(),
-                1,
-              ),
+              _buildDailyButton(context),
             ],
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildDailyButton(BuildContext context) {
+    return FutureBuilder<bool>(
+      future: _playedToday(),
+      builder: (context, snapshot) {
+        final played = snapshot.data == true;
+
+        if (snapshot.connectionState != ConnectionState.done) {
+          return Material(
+            borderRadius: BorderRadius.circular(16),
+            elevation: 4,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Opacity(
+                opacity: 0.9,
+                child: Image.asset("assets/images/dasafioDiario.png", fit: BoxFit.cover),
+              ),
+            ),
+          );
+        }
+
+        if (played) {
+          return Material(
+            borderRadius: BorderRadius.circular(16),
+            elevation: 4,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.asset("assets/images/dasafioDiario.png", fit: BoxFit.cover),
+                  Container(
+                    color: Colors.black45,
+                    alignment: Alignment.center,
+                    child: const Text(
+                      "Vuelve mañana",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return _buildImageButton(
+          context,
+          "assets/images/dasafioDiario.png",
+          const DailyChallengeScreen(),
+          1,
+        );
+      },
     );
   }
 
@@ -388,4 +467,6 @@ class HomeContent extends StatelessWidget {
       );
     }
   }
+
+  
 }
